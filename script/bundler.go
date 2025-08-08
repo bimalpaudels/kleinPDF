@@ -82,6 +82,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Copy ALL dependencies to ensure independence
+	dependencies := []string{"jbig2dec", "libidn"}
+	for _, dep := range dependencies {
+		if depPrefix, err := getBrewPrefixForFormula(brewPath, dep); err == nil {
+			if resolvedDepPrefix, err := filepath.EvalSymlinks(depPrefix); err == nil {
+				fmt.Printf("Bundling dependency: %s from %s\n", dep, resolvedDepPrefix)
+				
+				// Copy dependency libraries to our lib directory
+				depLibDir := filepath.Join(resolvedDepPrefix, "lib")
+				if err := copyDirContents(depLibDir, filepath.Join(bundledGhostscriptDir, "lib")); err != nil {
+					fmt.Printf("Warning: Failed to copy %s libraries: %v\n", dep, err)
+				}
+			}
+		}
+	}
+
 	// Ensure gs is executable
 	gsPath := filepath.Join(bundledGhostscriptDir, "bin", "gs")
 	if err := os.Chmod(gsPath, 0o755); err != nil {
@@ -218,5 +234,57 @@ func copyFile(src, dst string, mode fs.FileMode) error {
 	if err := os.Chmod(dst, mode); err != nil {
 		return err
 	}
+	return nil
+}
+
+// copyDirContents copies all files from srcDir to dstDir (merging contents)
+func copyDirContents(srcDir, dstDir string) error {
+	if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+		return nil // Source doesn't exist, skip silently
+	}
+
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		dstPath := filepath.Join(dstDir, entry.Name())
+
+		if entry.IsDir() {
+			// Create directory and recurse
+			if err := os.MkdirAll(dstPath, 0o755); err != nil {
+				return err
+			}
+			if err := copyDirContents(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			// Copy file
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			
+			// Handle symlinks by resolving to actual file
+			if info.Mode()&os.ModeSymlink != 0 {
+				resolved, err := filepath.EvalSymlinks(srcPath)
+				if err != nil {
+					continue // Skip broken symlinks
+				}
+				srcPath = resolved
+				info, err = os.Stat(srcPath)
+				if err != nil {
+					continue
+				}
+			}
+
+			if err := copyFile(srcPath, dstPath, info.Mode()); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
