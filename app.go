@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"io"
 	"log"
@@ -22,11 +23,12 @@ import (
 
 // App struct
 type App struct {
-	ctx          context.Context
-	pdfService   *services.PDFService
-	prefsService *services.PreferencesService
-	config       *config.Config
-	stats        *AppStats
+	ctx           context.Context
+	pdfService    *services.PDFService
+	prefsService  *services.PreferencesService
+	config        *config.Config
+	stats         *AppStats
+	bundledAssets embed.FS
 }
 
 // AppStats tracks application statistics
@@ -85,9 +87,10 @@ type CompressionResponse struct {
 }
 
 // NewApp creates a new App application struct
-func NewApp() *App {
+func NewApp(bundledAssets embed.FS) *App {
 	return &App{
-		stats: &AppStats{},
+		stats:         &AppStats{},
+		bundledAssets: bundledAssets,
 	}
 }
 
@@ -97,7 +100,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 
 	// Initialize configuration
-	cfg := config.New()
+	cfg := config.New(a.bundledAssets)
 	a.config = cfg
 
 	// Initialize database

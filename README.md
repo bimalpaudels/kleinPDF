@@ -112,6 +112,26 @@ wails build
 
 This creates platform-specific executables in the `build/` directory.
 
+## 📦 Bundling Ghostscript
+
+This app requires a bundled Ghostscript distribution. Use the Homebrew-based bundler to prepare the necessary files:
+
+### Homebrew-based bundling
+
+Requires macOS with Homebrew installed. The bundler will install Ghostscript via Homebrew (if not already installed) and copy the required files into `./bundled/ghostscript`:
+
+```bash
+go run ./script/bundler.go
+```
+
+This will place the following:
+
+- `bundled/ghostscript/bin/gs`
+- `bundled/ghostscript/lib/*` (dynamic libraries)
+- `bundled/ghostscript/share/ghostscript/<version>/*` (resources)
+
+The application will only use the bundled Ghostscript. System-installed versions are ignored by design.
+
 ## 📦 Package Management
 
 This project uses **pnpm** for frontend dependency management:
