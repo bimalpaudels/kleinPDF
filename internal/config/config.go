@@ -1,8 +1,12 @@
 package config
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"embed"
-	"io/fs"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -73,7 +77,7 @@ func (c *Config) setupGhostscriptPath() {
 	// Clean and extract from embedded assets
 	os.RemoveAll(extractDir)
 	log.Printf("Extracting embedded Ghostscript to: %s", extractDir)
-	
+
 	if err := c.extractGhostscriptFromEmbed(extractDir); err != nil {
 		log.Printf("Failed to extract Ghostscript: %v", err)
 		return
@@ -94,7 +98,7 @@ func (c *Config) findSystemGhostscript() (string, error) {
 	if path, err := exec.LookPath("gs"); err == nil {
 		return path, nil
 	}
-	
+
 	return "", os.ErrNotExist
 }
 
@@ -130,57 +134,99 @@ func (c *Config) isValidGhostscriptInstallation(extractDir string) bool {
 	return true
 }
 
-// extractGhostscriptFromEmbed extracts the embedded Ghostscript to the filesystem
+// extractGhostscriptFromEmbed extracts the embedded Ghostscript archive to the filesystem
 func (c *Config) extractGhostscriptFromEmbed(extractDir string) error {
 	// Ensure extract directory exists
 	if err := os.MkdirAll(extractDir, 0755); err != nil {
 		return err
 	}
 
-	// Walk through the embedded bundled directory
-	return fs.WalkDir(c.BundledAssets, "bundled", func(path string, d fs.DirEntry, err error) error {
+	// Read the embedded tar.gz archive
+	const archivePath = "bundled/ghostscript.tar.gz"
+	data, err := c.BundledAssets.ReadFile(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to read embedded archive %s: %w", archivePath, err)
+	}
+
+	// Set up gzip reader
+	gzReader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzReader.Close()
+
+	// Set up tar reader
+	tarReader := tar.NewReader(gzReader)
+
+	baseExtractDir := filepath.Clean(extractDir) + string(os.PathSeparator)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			return err
+			return fmt.Errorf("failed reading tar entry: %w", err)
 		}
 
-		// Create the corresponding filesystem path in extract directory
-		// Remove "bundled/" prefix from path to avoid nested bundled directories
-		relPath := strings.TrimPrefix(path, "bundled/")
-		localPath := filepath.Join(extractDir, relPath)
-		
-		if d.IsDir() {
-			// Create directory
-			return os.MkdirAll(localPath, 0755)
+		// Sanitize and build destination path
+		cleanName := filepath.Clean(header.Name)
+		destPath := filepath.Join(extractDir, cleanName)
+
+		// Prevent path traversal
+		if !strings.HasPrefix(destPath, baseExtractDir) {
+			return fmt.Errorf("illegal file path in archive: %s", header.Name)
 		}
 
-		// Read embedded file
-		data, err := c.BundledAssets.ReadFile(path)
-		if err != nil {
-			return err
-		}
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				return fmt.Errorf("failed to create dir %s: %w", destPath, err)
+			}
 
-		// Ensure parent directory exists
-		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
-			return err
-		}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+				return fmt.Errorf("failed to create parent dir for %s: %w", destPath, err)
+			}
+			outFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", destPath, err)
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close()
+				return fmt.Errorf("failed to write file %s: %w", destPath, err)
+			}
+			if err := outFile.Close(); err != nil {
+				return fmt.Errorf("failed to close file %s: %w", destPath, err)
+			}
 
-		// Determine file permissions
-		perm := os.FileMode(0644)
-		filename := filepath.Base(localPath)
-		
-		// Make executables and shared libraries executable
-		if filename == "gs" || strings.HasSuffix(filename, ".exe") || 
-		   strings.HasSuffix(filename, ".dylib") || strings.HasSuffix(filename, ".so") {
-			perm = 0755
-		}
+			// Adjust permissions for executables and shared libraries
+			filename := filepath.Base(destPath)
+			perm := os.FileMode(header.Mode)
+			if filename == "gs" || strings.HasSuffix(filename, ".exe") ||
+				strings.HasSuffix(filename, ".dylib") || strings.HasSuffix(filename, ".so") {
+				perm = 0755
+			}
+			if err := os.Chmod(destPath, perm); err != nil {
+				return fmt.Errorf("failed to set permissions on %s: %w", destPath, err)
+			}
 
-		// Write file
-		if err := os.WriteFile(localPath, data, perm); err != nil {
-			return err
-		}
+		case tar.TypeSymlink:
+			// Best effort: create symlink if possible; if not, skip
+			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+				return fmt.Errorf("failed to create parent dir for symlink %s: %w", destPath, err)
+			}
+			if err := os.Symlink(header.Linkname, destPath); err != nil {
+				// Non-fatal: log and continue
+				log.Printf("Warning: failed to create symlink %s -> %s: %v", destPath, header.Linkname, err)
+			}
 
-		return nil
-	})
+		default:
+			// Ignore other types (hard links, etc.)
+		}
+	}
+
+	return nil
 }
 
 func getAppDataDir() string {
@@ -195,4 +241,3 @@ func getAppDataDir() string {
 		return filepath.Join(homeDir, ".config", "kleinpdf")
 	}
 }
-
