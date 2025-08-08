@@ -1,6 +1,6 @@
 # Make Small PDF - Wails + Preact Desktop App
 
-A high-performance PDF compression desktop application built with Wails (Go + Web) and Preact frontend. Migrated from Electron to Wails for massive performance improvements while maintaining the exact same functionality and design.
+A high-performance PDF compression desktop application built with Wails (Go + Web) and Preact frontend. macOS-only (Intel + Apple Silicon) with Ghostscript bundled inside the app.
 
 ## Screenshot
 
@@ -8,7 +8,7 @@ A high-performance PDF compression desktop application built with Wails (Go + We
 
 ## 🚀 Features
 
-- **📄 PDF Compression**: Advanced compression using Ghostscript
+- **📄 PDF Compression**: Advanced compression using Ghostscript (embedded)
 - **🖥️ Desktop App**: Native desktop experience with Wails
 - **📁 Multiple Files**: Compress multiple PDF files at once
 - **⚡ Fast Processing**: Efficient batch processing with Go backend
@@ -36,7 +36,8 @@ pdf-compressor/
 │   │   └── app.css        # Styling
 │   ├── dist/              # Built frontend assets
 │   └── wailsjs/           # Auto-generated bindings
-├── bundled/               # Bundled Ghostscript
+├── bundled/               # Bundled archive(s)
+│   └── ghostscript.tar.gz # Single archive embedded & extracted at runtime
 └── build/                 # Built executables
 ```
 
@@ -45,22 +46,19 @@ pdf-compressor/
 - **Backend**: Go 1.23+ with Wails v2
 - **Frontend**: Preact + Vite for fast, lightweight UI
 - **Desktop Runtime**: Wails (native Go binaries)
-- **PDF Compression**: Ghostscript (bundled)
+- **PDF Compression**: Ghostscript (embedded archive)
 - **Database**: SQLite with GORM
 - **Build Tools**: Wails CLI, Vite, Go modules
 
 ## ⚡ Performance Benefits
 
-**Wails vs Electron Comparison:**
-
-- **Bundle Size**: ~8MB vs ~140MB (94% reduction)
-- **Memory Usage**: ~80% less RAM consumption
-- **Startup Time**: Native binary execution vs V8 interpretation
-- **Frontend Size**: Preact (~3KB) vs React (~42KB gzipped)
+- **Bundle Size**: Small native binary with embedded resources
+- **Memory Usage**: Low RAM consumption
+- **Startup Time**: Native binary execution
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Prerequisites (macOS)
 
 - Go 1.23 or later
 - Node.js 19+
@@ -102,35 +100,39 @@ This will:
 wails generate module
 ```
 
-## 🚀 Production Deployment
-
-**Build for production**:
+## 🚀 Production Build
 
 ```bash
 wails build
 ```
 
-This creates platform-specific executables in the `build/` directory.
+This creates a macOS app in the `build/` directory.
 
 ## 📦 Bundling Ghostscript
 
-This app requires a bundled Ghostscript distribution. Use the Homebrew-based bundler to prepare the necessary files:
+This app uses a single embedded archive `bundled/ghostscript.tar.gz` containing the Ghostscript runtime. At startup, the app extracts the archive into a temporary directory and uses the bundled `gs` binary and libraries.
 
-### Homebrew-based bundling
-
-Requires macOS with Homebrew installed. The bundler will install Ghostscript via Homebrew (if not already installed) and copy the required files into `./bundled/ghostscript`:
+To create/update the archive on macOS via Homebrew:
 
 ```bash
-go run ./script/bundler.go
+brew install ghostscript # if not already installed
+# Prepare the folder:
+go run ./script/bundle-simple.go
+# Then tar/gzip it (from repo root):
+cd bundled
+tar -czf ghostscript.tar.gz ghostscript
 ```
 
-This will place the following:
+Expected archive layout:
 
-- `bundled/ghostscript/bin/gs`
-- `bundled/ghostscript/lib/*` (dynamic libraries)
-- `bundled/ghostscript/share/ghostscript/<version>/*` (resources)
+```
+ghostscript/
+  bin/gs
+  lib/*
+  share/ghostscript/**
+```
 
-The application will only use the bundled Ghostscript. System-installed versions are ignored by design.
+System-installed Ghostscript is not used.
 
 ## 📦 Package Management
 
@@ -151,24 +153,12 @@ pnpm build           # Build for production
 
 ## 🔧 Configuration
 
-Edit `wails.json` to customize:
-
-- Application metadata (name, version, author)
-- Build settings and output paths
-- Platform-specific configurations
-- Frontend framework settings
-
-## 📝 Migration Notes
-
-See `migration-to-wails.md` for detailed information about the migration from Electron to Wails, including performance comparisons and technical decisions.
+Edit `wails.json` to customize basic app metadata and frontend build commands.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+- macOS-only support at this time (Intel + Apple Silicon)
+- PRs that simplify macOS support are welcome
 
 ## 📄 License
 

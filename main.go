@@ -11,7 +11,7 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed all:bundled
+//go:embed bundled/ghostscript.tar.gz
 var bundledAssets embed.FS
 
 func main() {
