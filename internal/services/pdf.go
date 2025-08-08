@@ -213,8 +213,46 @@ func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
 	libDir := filepath.Join(baseDir, "lib")
 	shareRoot := filepath.Join(baseDir, "share", "ghostscript")
 
-	// Compose GS_LIB search paths
-	gsLibPaths := s.discoverGhostscriptResourcePaths(shareRoot)
+	// Compose GS_LIB search paths - be more explicit about required paths
+	var gsLibPaths []string
+	
+	// Add version-specific Resource/Init directory (contains gs_init.ps)
+	entries, err := os.ReadDir(shareRoot)
+	if err == nil {
+		for _, e := range entries {
+			if e.IsDir() && strings.Contains(e.Name(), ".") {
+				versionDir := filepath.Join(shareRoot, e.Name())
+				initDir := filepath.Join(versionDir, "Resource", "Init")
+				if stat, err := os.Stat(initDir); err == nil && stat.IsDir() {
+					gsLibPaths = append(gsLibPaths, initDir)
+				}
+				// Also add the lib directory for this version
+				libDir := filepath.Join(versionDir, "lib")
+				if stat, err := os.Stat(libDir); err == nil && stat.IsDir() {
+					gsLibPaths = append(gsLibPaths, libDir)
+				}
+			}
+		}
+	}
+	
+	// Add the general Resource directory as fallback
+	resourceDir := filepath.Join(shareRoot, "Resource")
+	if stat, err := os.Stat(resourceDir); err == nil && stat.IsDir() {
+		gsLibPaths = append(gsLibPaths, resourceDir)
+		
+		// Add Resource/Init specifically
+		initDir := filepath.Join(resourceDir, "Init")
+		if stat, err := os.Stat(initDir); err == nil && stat.IsDir() {
+			gsLibPaths = append(gsLibPaths, initDir)
+		}
+	}
+	
+	// Add fonts directory
+	fontsDir := filepath.Join(shareRoot, "fonts")
+	if stat, err := os.Stat(fontsDir); err == nil && stat.IsDir() {
+		gsLibPaths = append(gsLibPaths, fontsDir)
+	}
+
 	if len(gsLibPaths) > 0 {
 		env = setEnv(env, "GS_LIB", strings.Join(gsLibPaths, pathListSeparator()))
 	}
@@ -238,21 +276,43 @@ func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
 
 // discoverBundledGhostscriptBase returns the base directory of the bundled
 // Ghostscript distribution given an absolute path to the Ghostscript binary.
-// Examples:
-// - .../bundled/ghostscript/bin/gs -> .../bundled/ghostscript
-// - .../bundled/ghostscript/gs     -> .../bundled/ghostscript
+// For temp directory structure: .../kleinpdf-ghostscript/ghostscript/bin/gs -> .../kleinpdf-ghostscript/ghostscript
 func (s *PDFService) discoverBundledGhostscriptBase(gsPath string) string {
+	if gsPath == "" {
+		return ""
+	}
+	
 	abs := gsPath
 	if !filepath.IsAbs(abs) {
 		if resolved, err := filepath.Abs(abs); err == nil {
 			abs = resolved
 		}
 	}
-	parent := filepath.Dir(abs)
-	if filepath.Base(parent) == "bin" {
-		return filepath.Dir(parent)
+	
+	// Walk up the path to find the ghostscript directory
+	dir := filepath.Dir(abs)
+	for {
+		if filepath.Base(dir) == "ghostscript" {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir { // reached root
+			break
+		}
+		dir = parent
 	}
-	return parent
+	
+	// Fallback: if the binary is directly in ghostscript directory
+	if strings.Contains(gsPath, "ghostscript") {
+		parts := strings.Split(gsPath, string(filepath.Separator))
+		for i, part := range parts {
+			if part == "ghostscript" && i > 0 {
+				return strings.Join(parts[:i+1], string(filepath.Separator))
+			}
+		}
+	}
+	
+	return ""
 }
 
 // discoverGhostscriptResourcePaths builds a prioritized list of resource
