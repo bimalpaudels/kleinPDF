@@ -13,7 +13,6 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	Port            string
 	WorkingDir      string
 	DatabasePath    string
 	GhostscriptPath string
@@ -24,7 +23,6 @@ type Config struct {
 // New creates a new configuration instance
 func New(bundledAssets embed.FS) *Config {
 	cfg := &Config{
-		Port:          getEnv("PORT", "8000"),
 		BundledAssets: bundledAssets,
 	}
 
@@ -92,26 +90,9 @@ func (c *Config) setupGhostscriptPath() {
 
 // findSystemGhostscript looks for system-installed Ghostscript
 func (c *Config) findSystemGhostscript() (string, error) {
-	// Check common system paths
-	candidates := []string{"gs", "ghostscript"}
-	
-	for _, cmd := range candidates {
-		if path, err := exec.LookPath(cmd); err == nil {
-			return path, nil
-		}
-	}
-	
-	// Check Homebrew path directly (common on macOS)
-	if runtime.GOOS == "darwin" {
-		homebrewPath := "/opt/homebrew/bin/gs"
-		if _, err := os.Stat(homebrewPath); err == nil {
-			return homebrewPath, nil
-		}
-		// Intel Mac Homebrew path
-		homebrewPath = "/usr/local/bin/gs"
-		if _, err := os.Stat(homebrewPath); err == nil {
-			return homebrewPath, nil
-		}
+	// Check standard system paths using PATH
+	if path, err := exec.LookPath("gs"); err == nil {
+		return path, nil
 	}
 	
 	return "", os.ErrNotExist
@@ -141,7 +122,7 @@ func (c *Config) isValidGhostscriptInstallation(extractDir string) bool {
 	}
 
 	for _, dir := range requiredDirs {
-		if stat, err := os.Stat(dir); err != nil || !stat.IsDir() {
+		if _, err := os.Stat(dir); err != nil {
 			return false
 		}
 	}
@@ -215,9 +196,3 @@ func getAppDataDir() string {
 	}
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
