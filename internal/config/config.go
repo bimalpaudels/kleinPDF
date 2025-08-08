@@ -170,11 +170,10 @@ func (c *Config) extractGhostscriptFromEmbed(extractDir string) error {
 				return fmt.Errorf("failed to close file %s: %w", destPath, err)
 			}
 
-			// Adjust permissions for executables and shared libraries
+			// Adjust permissions for executables and shared libraries (macOS)
 			filename := filepath.Base(destPath)
 			perm := os.FileMode(header.Mode)
-			if filename == "gs" || strings.HasSuffix(filename, ".exe") ||
-				strings.HasSuffix(filename, ".dylib") || strings.HasSuffix(filename, ".so") {
+			if filename == "gs" || strings.HasSuffix(filename, ".dylib") {
 				perm = 0755
 			}
 			if err := os.Chmod(destPath, perm); err != nil {
