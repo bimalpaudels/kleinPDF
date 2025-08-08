@@ -3,6 +3,7 @@ package config
 import (
 	"embed"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -48,15 +49,26 @@ func (c *Config) setupDirectories() {
 }
 
 func (c *Config) setupGhostscriptPath() {
+	// Get the executable path to determine the base directory
+	execPath, err := os.Executable()
+	if err != nil {
+		execPath = "."
+	}
+	baseDir := filepath.Dir(execPath)
+
 	// Check if bundled Ghostscript already exists in filesystem
 	candidates := []string{
-		"./bundled/ghostscript/bin/gs",
-		"./bundled/ghostscript/gs",
+		filepath.Join(baseDir, "bundled", "ghostscript", "bin", "gs"),
+		filepath.Join(baseDir, "bundled", "ghostscript", "gs"),
+		"./bundled/ghostscript/bin/gs", // fallback for dev mode
+		"./bundled/ghostscript/gs",     // fallback for dev mode
 	}
 	if runtime.GOOS == "windows" {
 		candidates = []string{
-			"./bundled/ghostscript/bin/gswin64c.exe",
-			"./bundled/ghostscript/gswin64c.exe",
+			filepath.Join(baseDir, "bundled", "ghostscript", "bin", "gswin64c.exe"),
+			filepath.Join(baseDir, "bundled", "ghostscript", "gswin64c.exe"),
+			"./bundled/ghostscript/bin/gswin64c.exe", // fallback for dev mode
+			"./bundled/ghostscript/gswin64c.exe",     // fallback for dev mode
 		}
 	}
 
@@ -70,30 +82,36 @@ func (c *Config) setupGhostscriptPath() {
 	}
 
 	// If not found on filesystem, try to extract from embedded assets
-	if err := c.extractGhostscriptFromEmbed(); err != nil {
+	log.Printf("Attempting to extract Ghostscript to base directory: %s", baseDir)
+	if err := c.extractGhostscriptFromEmbed(baseDir); err != nil {
+		// Log the error for debugging
+		log.Printf("Failed to extract Ghostscript from embedded assets: %v", err)
 		return // Failed to extract, leave GhostscriptPath empty
 	}
+	log.Printf("Successfully extracted Ghostscript from embedded assets")
 
 	// Try candidates again after extraction
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
 			abs, _ := filepath.Abs(candidate)
 			c.GhostscriptPath = abs
+			log.Printf("Found Ghostscript at: %s", abs)
 			return
 		}
 	}
+	log.Printf("No Ghostscript binary found after extraction attempt")
 }
 
 // extractGhostscriptFromEmbed extracts the embedded Ghostscript to the filesystem
-func (c *Config) extractGhostscriptFromEmbed() error {
+func (c *Config) extractGhostscriptFromEmbed(baseDir string) error {
 	// Walk through the embedded bundled directory
 	return fs.WalkDir(c.BundledAssets, "bundled", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Create the corresponding filesystem path
-		localPath := path
+		// Create the corresponding filesystem path relative to baseDir
+		localPath := filepath.Join(baseDir, path)
 		
 		if d.IsDir() {
 			// Create directory
