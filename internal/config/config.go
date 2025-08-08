@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -55,9 +54,6 @@ func (c *Config) setupGhostscriptPath() {
 	// Always use embedded Ghostscript
 	extractDir := filepath.Join(os.TempDir(), "kleinpdf-ghostscript")
 	gsPath := filepath.Join(extractDir, "ghostscript", "bin", "gs")
-	if runtime.GOOS == "windows" {
-		gsPath = filepath.Join(extractDir, "ghostscript", "bin", "gswin64c.exe")
-	}
 
 	// Check if already extracted and valid
 	if c.isValidGhostscriptInstallation(extractDir) {
@@ -87,9 +83,6 @@ func (c *Config) setupGhostscriptPath() {
 // isValidGhostscriptInstallation checks if the extracted Ghostscript installation is complete
 func (c *Config) isValidGhostscriptInstallation(extractDir string) bool {
 	gsPath := filepath.Join(extractDir, "ghostscript", "bin", "gs")
-	if runtime.GOOS == "windows" {
-		gsPath = filepath.Join(extractDir, "ghostscript", "bin", "gswin64c.exe")
-	}
 
 	// Check if binary exists and is executable
 	if stat, err := os.Stat(gsPath); err != nil || stat.Mode()&0111 == 0 {
@@ -207,14 +200,7 @@ func (c *Config) extractGhostscriptFromEmbed(extractDir string) error {
 }
 
 func getAppDataDir() string {
-	switch runtime.GOOS {
-	case "darwin":
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, "Library", "Application Support", "KleinPDF")
-	case "windows":
-		return filepath.Join(os.Getenv("LOCALAPPDATA"), "KleinPDF")
-	default: // Linux and others
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, ".config", "kleinpdf")
-	}
+	// macOS application support directory
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, "Library", "Application Support", "KleinPDF")
 }

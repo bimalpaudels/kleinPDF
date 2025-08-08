@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"pdf-compressor-wails/internal/config"
@@ -231,16 +230,8 @@ func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
 		env = setEnv(env, "GS_LIB", strings.Join(gsLibPaths, pathListSeparator()))
 	}
 
-	// Set library path based on OS
-	switch runtime.GOOS {
-	case "darwin":
-		env = prependPathLikeEnv(env, "DYLD_LIBRARY_PATH", libDir)
-	case "linux":
-		env = prependPathLikeEnv(env, "LD_LIBRARY_PATH", libDir)
-	case "windows":
-		env = prependPathLikeEnv(env, "PATH", libDir)
-		env = prependPathLikeEnv(env, "PATH", filepath.Join(baseDir, "bin"))
-	}
+	// macOS: set dynamic library path
+	env = prependPathLikeEnv(env, "DYLD_LIBRARY_PATH", libDir)
 
 	return env
 }
@@ -268,12 +259,7 @@ func (s *PDFService) getBundledGhostscriptBase(gsPath string) string {
 	return ""
 }
 
-func pathListSeparator() string {
-	if runtime.GOOS == "windows" {
-		return ";"
-	}
-	return ":"
-}
+func pathListSeparator() string { return ":" }
 
 func setEnv(env []string, key, value string) []string {
 	prefix := key + "="
