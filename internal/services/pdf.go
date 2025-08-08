@@ -45,16 +45,8 @@ func DefaultCompressionOptions() CompressionOptions {
 	}
 }
 
-// ProgressCallback is a function type for progress updates
-type ProgressCallback func(percent float64, message string)
-
 // CompressPDF compresses a PDF file using Ghostscript
 func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string, options *CompressionOptions) error {
-	return s.CompressPDFWithProgress(inputPath, outputPath, compressionLevel, options, nil)
-}
-
-// CompressPDFWithProgress compresses a PDF file using Ghostscript with progress callbacks
-func (s *PDFService) CompressPDFWithProgress(inputPath, outputPath, compressionLevel string, options *CompressionOptions, progressCallback ProgressCallback) error {
 	if s.config.GhostscriptPath == "" {
 		return fmt.Errorf("Ghostscript not found. Please install Ghostscript to use this application")
 	}
@@ -140,7 +132,7 @@ func (s *PDFService) CompressPDFWithProgress(inputPath, outputPath, compressionL
 
 	args = append(args, "-sOutputFile="+outputPath, actualInputPath)
 
-	// Execute Ghostscript command directly without progress tracking
+	// Execute Ghostscript command
 	cmd := exec.Command(s.config.GhostscriptPath, args...)
 	// Ensure bundled libraries/resources are discoverable
 	cmd.Env = s.buildGhostscriptEnv(os.Environ())
@@ -217,19 +209,19 @@ func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
 
 	// Set GS_LIB for resource discovery - need to include specific paths
 	var gsLibPaths []string
-	
+
 	// Add Resource/Init directory (contains gs_init.ps)
 	resourceInit := filepath.Join(shareRoot, "Resource", "Init")
 	if _, err := os.Stat(resourceInit); err == nil {
 		gsLibPaths = append(gsLibPaths, resourceInit)
 	}
-	
-	// Add Resource directory  
+
+	// Add Resource directory
 	resource := filepath.Join(shareRoot, "Resource")
 	if _, err := os.Stat(resource); err == nil {
 		gsLibPaths = append(gsLibPaths, resource)
 	}
-	
+
 	// Add the share root as fallback
 	if _, err := os.Stat(shareRoot); err == nil {
 		gsLibPaths = append(gsLibPaths, shareRoot)
@@ -263,16 +255,16 @@ func (s *PDFService) getBundledGhostscriptBase(gsPath string) string {
 	if !s.isEmbeddedGhostscript(gsPath) {
 		return ""
 	}
-	
+
 	// Walk up from /tmp/kleinpdf-ghostscript/ghostscript/bin/gs
 	// to find /tmp/kleinpdf-ghostscript/ghostscript
 	dir := filepath.Dir(gsPath) // bin
 	dir = filepath.Dir(dir)     // ghostscript
-	
+
 	if filepath.Base(dir) == "ghostscript" {
 		return dir
 	}
-	
+
 	return ""
 }
 

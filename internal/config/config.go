@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -53,14 +52,7 @@ func (c *Config) setupDirectories() {
 }
 
 func (c *Config) setupGhostscriptPath() {
-	// Try system installation first for development
-	if systemPath, err := c.findSystemGhostscript(); err == nil {
-		c.GhostscriptPath = systemPath
-		log.Printf("Using system Ghostscript: %s", systemPath)
-		return
-	}
-
-	// Fall back to embedded Ghostscript
+	// Always use embedded Ghostscript
 	extractDir := filepath.Join(os.TempDir(), "kleinpdf-ghostscript")
 	gsPath := filepath.Join(extractDir, "ghostscript", "bin", "gs")
 	if runtime.GOOS == "windows" {
@@ -90,21 +82,6 @@ func (c *Config) setupGhostscriptPath() {
 		log.Printf("Ghostscript setup failed")
 		os.RemoveAll(extractDir)
 	}
-}
-
-// findSystemGhostscript looks for system-installed Ghostscript
-func (c *Config) findSystemGhostscript() (string, error) {
-	// Check standard system paths using PATH
-	if path, err := exec.LookPath("gs"); err == nil {
-		return path, nil
-	}
-
-	return "", os.ErrNotExist
-}
-
-// IsSystemGhostscript checks if we're using system-installed Ghostscript
-func (c *Config) IsSystemGhostscript() bool {
-	return c.GhostscriptPath != "" && !strings.Contains(c.GhostscriptPath, "kleinpdf-ghostscript")
 }
 
 // isValidGhostscriptInstallation checks if the extracted Ghostscript installation is complete
