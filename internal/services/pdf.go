@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"pdf-compressor-wails/internal/config"
@@ -194,18 +193,21 @@ func (s *PDFService) IsGhostscriptAvailable() bool {
 	return s.config.GhostscriptPath != ""
 }
 
-// buildGhostscriptEnv prepares environment variables so that the bundled
-// Ghostscript binary can reliably find its dynamic libraries and resources
-// when executed from the application bundle.
+// buildGhostscriptEnv prepares environment variables for Ghostscript execution
 func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
-	env := append([]string{}, baseEnv...)
-
 	gsPath := s.config.GhostscriptPath
 	if gsPath == "" {
-		return env
+		return baseEnv
 	}
 
-	baseDir := s.discoverBundledGhostscriptBase(gsPath)
+	// If using system Ghostscript, no special environment needed
+	if !s.isEmbeddedGhostscript(gsPath) {
+		return baseEnv
+	}
+
+	// For embedded Ghostscript, set up environment
+	env := append([]string{}, baseEnv...)
+	baseDir := s.getBundledGhostscriptBase(gsPath)
 	if baseDir == "" {
 		return env
 	}
@@ -213,60 +215,37 @@ func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
 	libDir := filepath.Join(baseDir, "lib")
 	shareRoot := filepath.Join(baseDir, "share", "ghostscript")
 
-	// Compose GS_LIB search paths - be more explicit about required paths
+	// Set GS_LIB for resource discovery - need to include specific paths
 	var gsLibPaths []string
 	
-	// Add version-specific Resource/Init directory (contains gs_init.ps)
-	entries, err := os.ReadDir(shareRoot)
-	if err == nil {
-		for _, e := range entries {
-			if e.IsDir() && strings.Contains(e.Name(), ".") {
-				versionDir := filepath.Join(shareRoot, e.Name())
-				initDir := filepath.Join(versionDir, "Resource", "Init")
-				if stat, err := os.Stat(initDir); err == nil && stat.IsDir() {
-					gsLibPaths = append(gsLibPaths, initDir)
-				}
-				// Also add the lib directory for this version
-				libDir := filepath.Join(versionDir, "lib")
-				if stat, err := os.Stat(libDir); err == nil && stat.IsDir() {
-					gsLibPaths = append(gsLibPaths, libDir)
-				}
-			}
-		}
+	// Add Resource/Init directory (contains gs_init.ps)
+	resourceInit := filepath.Join(shareRoot, "Resource", "Init")
+	if _, err := os.Stat(resourceInit); err == nil {
+		gsLibPaths = append(gsLibPaths, resourceInit)
 	}
 	
-	// Add the general Resource directory as fallback
-	resourceDir := filepath.Join(shareRoot, "Resource")
-	if stat, err := os.Stat(resourceDir); err == nil && stat.IsDir() {
-		gsLibPaths = append(gsLibPaths, resourceDir)
-		
-		// Add Resource/Init specifically
-		initDir := filepath.Join(resourceDir, "Init")
-		if stat, err := os.Stat(initDir); err == nil && stat.IsDir() {
-			gsLibPaths = append(gsLibPaths, initDir)
-		}
+	// Add Resource directory  
+	resource := filepath.Join(shareRoot, "Resource")
+	if _, err := os.Stat(resource); err == nil {
+		gsLibPaths = append(gsLibPaths, resource)
 	}
 	
-	// Add fonts directory
-	fontsDir := filepath.Join(shareRoot, "fonts")
-	if stat, err := os.Stat(fontsDir); err == nil && stat.IsDir() {
-		gsLibPaths = append(gsLibPaths, fontsDir)
+	// Add the share root as fallback
+	if _, err := os.Stat(shareRoot); err == nil {
+		gsLibPaths = append(gsLibPaths, shareRoot)
 	}
 
 	if len(gsLibPaths) > 0 {
 		env = setEnv(env, "GS_LIB", strings.Join(gsLibPaths, pathListSeparator()))
 	}
 
-	// Ensure dynamic loader can locate libgs and friends
+	// Set library path based on OS
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS uses DYLD_LIBRARY_PATH
 		env = prependPathLikeEnv(env, "DYLD_LIBRARY_PATH", libDir)
 	case "linux":
-		// Linux uses LD_LIBRARY_PATH
 		env = prependPathLikeEnv(env, "LD_LIBRARY_PATH", libDir)
 	case "windows":
-		// On Windows, extend PATH so DLLs can be located
 		env = prependPathLikeEnv(env, "PATH", libDir)
 		env = prependPathLikeEnv(env, "PATH", filepath.Join(baseDir, "bin"))
 	}
@@ -274,86 +253,34 @@ func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
 	return env
 }
 
-// discoverBundledGhostscriptBase returns the base directory of the bundled
-// Ghostscript distribution given an absolute path to the Ghostscript binary.
-// For temp directory structure: .../kleinpdf-ghostscript/ghostscript/bin/gs -> .../kleinpdf-ghostscript/ghostscript
-func (s *PDFService) discoverBundledGhostscriptBase(gsPath string) string {
-	if gsPath == "" {
+// isEmbeddedGhostscript checks if the path points to embedded Ghostscript
+func (s *PDFService) isEmbeddedGhostscript(gsPath string) bool {
+	return strings.Contains(gsPath, "kleinpdf-ghostscript")
+}
+
+// getBundledGhostscriptBase returns the base directory for embedded Ghostscript
+func (s *PDFService) getBundledGhostscriptBase(gsPath string) string {
+	if !s.isEmbeddedGhostscript(gsPath) {
 		return ""
 	}
 	
-	abs := gsPath
-	if !filepath.IsAbs(abs) {
-		if resolved, err := filepath.Abs(abs); err == nil {
-			abs = resolved
-		}
-	}
+	// Walk up from /tmp/kleinpdf-ghostscript/ghostscript/bin/gs
+	// to find /tmp/kleinpdf-ghostscript/ghostscript
+	dir := filepath.Dir(gsPath) // bin
+	dir = filepath.Dir(dir)     // ghostscript
 	
-	// Walk up the path to find the ghostscript directory
-	dir := filepath.Dir(abs)
-	for {
-		if filepath.Base(dir) == "ghostscript" {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir { // reached root
-			break
-		}
-		dir = parent
-	}
-	
-	// Fallback: if the binary is directly in ghostscript directory
-	if strings.Contains(gsPath, "ghostscript") {
-		parts := strings.Split(gsPath, string(filepath.Separator))
-		for i, part := range parts {
-			if part == "ghostscript" && i > 0 {
-				return strings.Join(parts[:i+1], string(filepath.Separator))
-			}
-		}
+	if filepath.Base(dir) == "ghostscript" {
+		return dir
 	}
 	
 	return ""
 }
 
-// discoverGhostscriptResourcePaths builds a prioritized list of resource
-// directories that Ghostscript will search via GS_LIB.
-func (s *PDFService) discoverGhostscriptResourcePaths(shareRoot string) []string {
-	var paths []string
-	// Add the root to allow Ghostscript to search beneath
-	if stat, err := os.Stat(shareRoot); err == nil && stat.IsDir() {
-		paths = append(paths, shareRoot)
-
-		// Find the highest version directory, e.g., share/ghostscript/10.05.1
-		entries, err := os.ReadDir(shareRoot)
-		if err == nil {
-			var versions []string
-			for _, e := range entries {
-				if e.IsDir() {
-					name := e.Name()
-					// simple heuristic: name contains a dot version
-					if strings.Contains(name, ".") {
-						versions = append(versions, name)
-					}
-				}
-			}
-			if len(versions) > 0 {
-				sort.Strings(versions)
-				best := versions[len(versions)-1]
-				versionDir := filepath.Join(shareRoot, best)
-				// Common subdirs used by Ghostscript search
-				candidateDirs := []string{
-					filepath.Join(versionDir, "Resource", "Init"),
-					filepath.Join(versionDir, "lib"),
-				}
-				for _, d := range candidateDirs {
-					if st, err := os.Stat(d); err == nil && st.IsDir() {
-						paths = append(paths, d)
-					}
-				}
-			}
-		}
+func pathListSeparator() string {
+	if runtime.GOOS == "windows" {
+		return ";"
 	}
-	return paths
+	return ":"
 }
 
 func setEnv(env []string, key, value string) []string {
@@ -384,11 +311,4 @@ func prependPathLikeEnv(env []string, key, value string) []string {
 		}
 	}
 	return append(env, prefix+value)
-}
-
-func pathListSeparator() string {
-	if runtime.GOOS == "windows" {
-		return ";"
-	}
-	return ":"
 }

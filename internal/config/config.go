@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -50,40 +51,75 @@ func (c *Config) setupDirectories() {
 }
 
 func (c *Config) setupGhostscriptPath() {
-	// Use a dedicated temp directory for extraction to avoid permission issues
+	// Try system installation first for development
+	if systemPath, err := c.findSystemGhostscript(); err == nil {
+		c.GhostscriptPath = systemPath
+		log.Printf("Using system Ghostscript: %s", systemPath)
+		return
+	}
+
+	// Fall back to embedded Ghostscript
 	extractDir := filepath.Join(os.TempDir(), "kleinpdf-ghostscript")
-	
-	// Check if bundled Ghostscript already exists in temp directory
 	gsPath := filepath.Join(extractDir, "ghostscript", "bin", "gs")
 	if runtime.GOOS == "windows" {
 		gsPath = filepath.Join(extractDir, "ghostscript", "bin", "gswin64c.exe")
 	}
 
-	// First check if already extracted and valid
+	// Check if already extracted and valid
 	if c.isValidGhostscriptInstallation(extractDir) {
 		c.GhostscriptPath = gsPath
-		log.Printf("Found existing Ghostscript at: %s", gsPath)
+		log.Printf("Using cached Ghostscript: %s", gsPath)
 		return
 	}
 
-	// Clean up any incomplete extraction
+	// Clean and extract from embedded assets
 	os.RemoveAll(extractDir)
-
-	// Extract from embedded assets
-	log.Printf("Extracting Ghostscript to temp directory: %s", extractDir)
+	log.Printf("Extracting embedded Ghostscript to: %s", extractDir)
+	
 	if err := c.extractGhostscriptFromEmbed(extractDir); err != nil {
-		log.Printf("Failed to extract Ghostscript from embedded assets: %v", err)
+		log.Printf("Failed to extract Ghostscript: %v", err)
 		return
 	}
 
-	// Verify extraction was successful
 	if c.isValidGhostscriptInstallation(extractDir) {
 		c.GhostscriptPath = gsPath
-		log.Printf("Successfully extracted and validated Ghostscript at: %s", gsPath)
+		log.Printf("Successfully setup embedded Ghostscript: %s", gsPath)
 	} else {
-		log.Printf("Ghostscript extraction validation failed")
-		os.RemoveAll(extractDir) // Clean up failed extraction
+		log.Printf("Ghostscript setup failed")
+		os.RemoveAll(extractDir)
 	}
+}
+
+// findSystemGhostscript looks for system-installed Ghostscript
+func (c *Config) findSystemGhostscript() (string, error) {
+	// Check common system paths
+	candidates := []string{"gs", "ghostscript"}
+	
+	for _, cmd := range candidates {
+		if path, err := exec.LookPath(cmd); err == nil {
+			return path, nil
+		}
+	}
+	
+	// Check Homebrew path directly (common on macOS)
+	if runtime.GOOS == "darwin" {
+		homebrewPath := "/opt/homebrew/bin/gs"
+		if _, err := os.Stat(homebrewPath); err == nil {
+			return homebrewPath, nil
+		}
+		// Intel Mac Homebrew path
+		homebrewPath = "/usr/local/bin/gs"
+		if _, err := os.Stat(homebrewPath); err == nil {
+			return homebrewPath, nil
+		}
+	}
+	
+	return "", os.ErrNotExist
+}
+
+// IsSystemGhostscript checks if we're using system-installed Ghostscript
+func (c *Config) IsSystemGhostscript() bool {
+	return c.GhostscriptPath != "" && !strings.Contains(c.GhostscriptPath, "kleinpdf-ghostscript")
 }
 
 // isValidGhostscriptInstallation checks if the extracted Ghostscript installation is complete
