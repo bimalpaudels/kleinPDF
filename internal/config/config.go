@@ -30,7 +30,7 @@ func New() *Config {
 func (c *Config) setupDirectories() {
 	// Set up working directory (temp files)
 	tempDir := os.TempDir()
-	c.WorkingDir = filepath.Join(tempDir, "kleinpdf")
+	c.WorkingDir = filepath.Join(tempDir, "KleinPDF", "workspace")
 
 	// Ensure working directory exists
 	os.MkdirAll(c.WorkingDir, 0755)
@@ -45,8 +45,8 @@ func (c *Config) setupDirectories() {
 
 func (c *Config) setupGhostscriptPath() {
 	// Use embedded binary directly
-	extractDir := filepath.Join(os.TempDir(), "kleinpdf-ghostscript")
-	gsPath := filepath.Join(extractDir, "gs")
+	extractDir := filepath.Join(os.TempDir(), "KleinPDF", "bin")
+	gsPath := filepath.Join(extractDir, "ghostscript")
 
 	// Check if already extracted and valid
 	if c.isValidGhostscriptBinary(gsPath) {
