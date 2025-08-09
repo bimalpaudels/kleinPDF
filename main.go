@@ -11,12 +11,10 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed bundled/ghostscript.tar.gz
-var bundledAssets embed.FS
 
 func main() {
 	// Create an instance of the app structure
-	app := NewApp(bundledAssets)
+	app := NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{

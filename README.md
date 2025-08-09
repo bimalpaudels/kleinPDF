@@ -22,9 +22,11 @@ A high-performance PDF compression desktop application built with Wails (Go + We
 pdf-compressor/
 ├── main.go                 # Wails application entry point
 ├── app.go                  # Main app struct with methods
+├── generate.go             # Go generate script for downloading binaries
 ├── wails.json              # Wails configuration
 ├── go.mod                  # Go module dependencies
 ├── internal/               # Go application code
+│   ├── binary/            # Embedded Ghostscript binary
 │   ├── config/            # Configuration management
 │   ├── database/          # Database initialization
 │   ├── models/            # Database models
@@ -36,8 +38,6 @@ pdf-compressor/
 │   │   └── app.css        # Styling
 │   ├── dist/              # Built frontend assets
 │   └── wailsjs/           # Auto-generated bindings
-├── bundled/               # Bundled archive(s)
-│   └── ghostscript.tar.gz # Single archive embedded & extracted at runtime
 └── build/                 # Built executables
 ```
 
@@ -46,7 +46,7 @@ pdf-compressor/
 - **Backend**: Go 1.23+ with Wails v2
 - **Frontend**: Preact + Vite for fast, lightweight UI
 - **Desktop Runtime**: Wails (native Go binaries)
-- **PDF Compression**: Ghostscript (embedded archive)
+- **PDF Compression**: Ghostscript (embedded binary)
 - **Database**: SQLite with GORM
 - **Build Tools**: Wails CLI, Vite, Go modules
 
@@ -108,29 +108,24 @@ wails build
 
 This creates a macOS app in the `build/` directory.
 
-## 📦 Bundling Ghostscript
+## 📦 Ghostscript Binary Management
 
-This app uses a single embedded archive `bundled/ghostscript.tar.gz` containing the Ghostscript runtime. At startup, the app extracts the archive into a temporary directory and uses the bundled `gs` binary and libraries.
+This app uses architecture-specific Ghostscript binaries directly embedded from [GitHub releases](https://github.com/bimalpaudels/kleinPDF-ghostscript-binary/releases). The binary is automatically downloaded and embedded during build time using Go's `go:generate` feature.
 
-To create/update the archive on macOS via Homebrew:
+### Binary Generation
+
+The appropriate binary for your system architecture is automatically downloaded during build:
 
 ```bash
-brew install ghostscript # if not already installed
-# Prepare the folder:
-go run ./script/bundle-simple.go
-# Then tar/gzip it (from repo root):
-cd bundled
-tar -czf ghostscript.tar.gz ghostscript
+# Generate the binary (happens automatically during build)
+go generate ./internal/binary
 ```
 
-Expected archive layout:
+Supported architectures:
+- **Apple Silicon** (arm64): `ghostscript-10.05.1-macos-arm64`
+- **Intel Macs** (amd64): `ghostscript-10.05.1-macos-x86_64`
 
-```
-ghostscript/
-  bin/gs
-  lib/*
-  share/ghostscript/**
-```
+The binary is embedded directly into the application using Go's `embed` package, eliminating the need for complex archive extraction.
 
 System-installed Ghostscript is not used.
 

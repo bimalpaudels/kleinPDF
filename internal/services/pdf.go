@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"pdf-compressor-wails/internal/config"
@@ -133,8 +132,6 @@ func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string,
 
 	// Execute Ghostscript command
 	cmd := exec.Command(s.config.GhostscriptPath, args...)
-	// Ensure bundled libraries/resources are discoverable
-	cmd.Env = s.buildGhostscriptEnv(os.Environ())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ghostscript failed: %v, output: %s", err, string(output))
@@ -164,7 +161,6 @@ func (s *PDFService) convertToGrayscale(inputPath, outputPath string) error {
 	}
 
 	cmd := exec.Command(s.config.GhostscriptPath, args...)
-	cmd.Env = s.buildGhostscriptEnv(os.Environ())
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -184,109 +180,6 @@ func (s *PDFService) IsGhostscriptAvailable() bool {
 	return s.config.GhostscriptPath != ""
 }
 
-// buildGhostscriptEnv prepares environment variables for Ghostscript execution
-func (s *PDFService) buildGhostscriptEnv(baseEnv []string) []string {
-	gsPath := s.config.GhostscriptPath
-	if gsPath == "" {
-		return baseEnv
-	}
 
-	// If using system Ghostscript, no special environment needed
-	if !s.isEmbeddedGhostscript(gsPath) {
-		return baseEnv
-	}
 
-	// For embedded Ghostscript, set up environment
-	env := append([]string{}, baseEnv...)
-	baseDir := s.getBundledGhostscriptBase(gsPath)
-	if baseDir == "" {
-		return env
-	}
 
-	libDir := filepath.Join(baseDir, "lib")
-	shareRoot := filepath.Join(baseDir, "share", "ghostscript")
-
-	// Set GS_LIB for resource discovery - need to include specific paths
-	var gsLibPaths []string
-
-	// Add Resource/Init directory (contains gs_init.ps)
-	resourceInit := filepath.Join(shareRoot, "Resource", "Init")
-	if _, err := os.Stat(resourceInit); err == nil {
-		gsLibPaths = append(gsLibPaths, resourceInit)
-	}
-
-	// Add Resource directory
-	resource := filepath.Join(shareRoot, "Resource")
-	if _, err := os.Stat(resource); err == nil {
-		gsLibPaths = append(gsLibPaths, resource)
-	}
-
-	// Add the share root as fallback
-	if _, err := os.Stat(shareRoot); err == nil {
-		gsLibPaths = append(gsLibPaths, shareRoot)
-	}
-
-	if len(gsLibPaths) > 0 {
-		env = setEnv(env, "GS_LIB", strings.Join(gsLibPaths, pathListSeparator()))
-	}
-
-	// macOS: set dynamic library path
-	env = prependPathLikeEnv(env, "DYLD_LIBRARY_PATH", libDir)
-
-	return env
-}
-
-// isEmbeddedGhostscript checks if the path points to embedded Ghostscript
-func (s *PDFService) isEmbeddedGhostscript(gsPath string) bool {
-	return strings.Contains(gsPath, "kleinpdf-ghostscript")
-}
-
-// getBundledGhostscriptBase returns the base directory for embedded Ghostscript
-func (s *PDFService) getBundledGhostscriptBase(gsPath string) string {
-	if !s.isEmbeddedGhostscript(gsPath) {
-		return ""
-	}
-
-	// Walk up from /tmp/kleinpdf-ghostscript/ghostscript/bin/gs
-	// to find /tmp/kleinpdf-ghostscript/ghostscript
-	dir := filepath.Dir(gsPath) // bin
-	dir = filepath.Dir(dir)     // ghostscript
-
-	if filepath.Base(dir) == "ghostscript" {
-		return dir
-	}
-
-	return ""
-}
-
-func pathListSeparator() string { return ":" }
-
-func setEnv(env []string, key, value string) []string {
-	prefix := key + "="
-	for i, kv := range env {
-		if strings.HasPrefix(kv, prefix) {
-			env[i] = prefix + value
-			return env
-		}
-	}
-	return append(env, prefix+value)
-}
-
-func prependPathLikeEnv(env []string, key, value string) []string {
-	if value == "" {
-		return env
-	}
-	prefix := key + "="
-	sep := pathListSeparator()
-	for i, kv := range env {
-		if current, found := strings.CutPrefix(kv, prefix); found {
-			if current == "" {
-				env[i] = prefix + value
-			} else {
-				env[i] = prefix + value + sep + current
-			}
-			return env
-		}
-	}
-	return append(env, prefix+value)
-}
