@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/* Dark mode CSS variables for consistent theming */
+:root {
+    --bg-primary: #f5f5f7;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #fafafa;
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+    --border-color: #e5e5e7;
+    --border-light: #d1d1d6;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --accent-blue: #007AFF;
+    --accent-purple: #5856D6;
+    --success-bg: #f0fff0;
+    --success-border: #28a745;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #000000;
+        --bg-secondary: #1a1a1a;
+        --bg-tertiary: #2a2a2a;
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+        --border-color: #404040;
+        --border-light: #505050;
+        --shadow: rgba(0, 0, 0, 0.5);
+        --accent-blue: #0A84FF;
+        --accent-purple: #5E5CE6;
+        --success-bg: #0d2e0d;
+        --success-border: #30d158;
+    }
+}
+
+/* Custom animations */
+@keyframes progress-shine {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* Custom utility classes for animations and specific styles */
+.progress-shine {
+    animation: progress-shine 1.5s infinite linear;
+}
