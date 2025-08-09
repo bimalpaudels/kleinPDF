@@ -120,3 +120,7 @@ AppData/Local/KleinPDF/
 *.key
 *.crt
 *.csr
+
+
+# Ghostscript binary
+ghostscript
