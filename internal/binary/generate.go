@@ -27,7 +27,7 @@ func main() {
 	}
 
 	url := fmt.Sprintf("%s/%s", baseURL, binaryName)
-	outputPath := "ghostscript_binary"
+	outputPath := "ghostscript"
 
 	fmt.Printf("Downloading %s for %s...\n", binaryName, runtime.GOARCH)
 

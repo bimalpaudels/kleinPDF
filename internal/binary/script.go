@@ -6,5 +6,5 @@ import (
 
 //go:generate go run generate.go
 
-//go:embed ghostscript_binary
+//go:embed ghostscript
 var GhostscriptBinary []byte
