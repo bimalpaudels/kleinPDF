@@ -362,13 +362,7 @@ function App() {
     <div className="min-h-screen bg-bg-primary text-text-primary font-nunito">
       {/* Enhanced Header with PDF-themed design */}
       <header className="relative overflow-hidden bg-gradient-to-br from-bg-primary to-bg-secondary">
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23dc2626' fill-opacity='0.1'%3E%3Cpath d='M0 0h20v20H0z'/%3E%3C/g%3E%3C/svg%3E")`,
-            backgroundSize: "20px 20px",
-          }}
-        ></div>
+        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml,%3Csvg%20width=%2720%27%20height=%2720%27%20viewBox=%270%200%2020%2020%27%20xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cg%20fill=%27%23dc2626%27%20fill-opacity=%270.1%27%3E%3Cpath%20d=%27M0%200h20v20H0z%27/%3E%3C/g%3E%3C/svg%3E')] bg-[length:20px_20px]"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-6 sm:gap-0">
@@ -484,8 +478,7 @@ function App() {
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden relative bg-border-default">
                   <div
-                    className="h-full transition-all duration-300 rounded-full relative overflow-hidden bg-gradient-to-r from-pdf-red to-accent-secondary"
-                    style={{ width: `${progress.value.percent}%` }}
+                    className={`h-full transition-all duration-300 rounded-full relative overflow-hidden bg-gradient-to-r from-pdf-red to-accent-secondary w-[${progress.value.percent}%]`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent progress-shine"></div>
                   </div>
