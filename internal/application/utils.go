@@ -35,20 +35,3 @@ func CopyFile(src, dst string) error {
 	return err
 }
 
-func CleanupOldTempFiles(workingDir string) {
-	if _, err := os.Stat(workingDir); os.IsNotExist(err) {
-		return
-	}
-
-	entries, err := os.ReadDir(workingDir)
-	if err != nil {
-		return
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			dirPath := filepath.Join(workingDir, entry.Name())
-			os.RemoveAll(dirPath)
-		}
-	}
-}

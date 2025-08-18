@@ -53,8 +53,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		}
 	}
 
-	// Clean up old temp files
-	CleanupOldTempFiles(h.config.WorkingDir)
+	// No temp files needed - direct processing
 
 	// Use compression level from preferences if not specified
 	compressionLevel := request.CompressionLevel
@@ -236,61 +235,41 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 func (h *CompressionHandler) processSingleFileWithProgress(fileID, filePath, compressionLevel string, advancedOptions *services.CompressionOptions, workerID int) (*FileResult, error) {
 	filename := filepath.Base(filePath)
 
-	// Emit copying status
-	wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
-		FileID:   fileID,
-		Filename: filename,
-		Status:   "copying",
-		Progress: 10,
-		WorkerID: workerID,
-	})
-
-	// Generate temp directory
-	tempDir := filepath.Join(h.config.WorkingDir, fileID)
-
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return nil, err
-	}
-
-	// Create timestamp-based filename for compressed file
-	timestamp := time.Now().UTC().Format("20060102_150405")
-	baseName := strings.TrimSuffix(filename, ".pdf")
-	compressedFilename := fmt.Sprintf("%s_%s.pdf", baseName, timestamp)
-
-	// Copy original file to temp directory
-	originalTempPath := filepath.Join(tempDir, filename)
-	if err := CopyFile(filePath, originalTempPath); err != nil {
-		return nil, fmt.Errorf("failed to copy file to temp directory: %v", err)
-	}
-
-	// Emit compression status
+	// Emit compression status - no copying needed, go straight to compression
 	wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
 		FileID:   fileID,
 		Filename: filename,
 		Status:   "compressing",
-		Progress: 30,
+		Progress: 20,
 		WorkerID: workerID,
 	})
 
-	// Compress the PDF
-	compressedPath := filepath.Join(tempDir, compressedFilename)
+	// Create timestamp-based filename for compressed file
+	timestamp := time.Now().UTC().Format("20060102_150405")
+	baseName := strings.TrimSuffix(filename, ".pdf")
+	compressedFilename := fmt.Sprintf("%s_%s_compressed.pdf", baseName, timestamp)
 
-	err := h.pdfService.CompressPDF(originalTempPath, compressedPath, compressionLevel, advancedOptions)
+	// Generate output path in the same directory as input (for direct processing)
+	inputDir := filepath.Dir(filePath)
+	compressedPath := filepath.Join(inputDir, compressedFilename)
+
+	// Direct compression: GS reads from original file, writes to output path
+	err := h.pdfService.CompressPDF(filePath, compressedPath, compressionLevel, advancedOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	// Emit finishing status
+	// Emit completion status
 	wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
 		FileID:   fileID,
 		Filename: filename,
-		Status:   "finalizing",
-		Progress: 90,
+		Status:   "completed",
+		Progress: 100,
 		WorkerID: workerID,
 	})
 
-	// Get file sizes
-	originalInfo, err := os.Stat(originalTempPath)
+	// Get file sizes for statistics
+	originalInfo, err := os.Stat(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -311,11 +290,11 @@ func (h *CompressionHandler) processSingleFileWithProgress(fileID, filePath, com
 		OriginalSize:       originalSize,
 		CompressedSize:     compressedSize,
 		CompressionRatio:   compressionRatio,
-		TempPath:           compressedPath,
+		TempPath:           compressedPath, // Now points to the final output location
 	}, nil
 }
 
-// ProcessFileData handles PDF compression from file data instead of file paths
+// ProcessFileData handles PDF compression from file data (drag & drop with actual file paths)
 func (h *CompressionHandler) ProcessFileData(fileData []FileUpload) CompressionResponse {
 	// Validate input
 	if len(fileData) == 0 {
@@ -325,16 +304,14 @@ func (h *CompressionHandler) ProcessFileData(fileData []FileUpload) CompressionR
 		}
 	}
 
-	// Write files to temp directory first
-	filePaths, err := h.filesHandler.WriteFilesToTemp(fileData)
-	if err != nil {
-		return CompressionResponse{
-			Success: false,
-			Error:   fmt.Sprintf("Failed to prepare files: %v", err),
-		}
+	// Extract file paths directly from the uploaded data (assuming fileData contains actual paths)
+	var filePaths []string
+	for _, file := range fileData {
+		// Use the file name as the path (for drag & drop, this should be the actual file path)
+		filePaths = append(filePaths, file.Name)
 	}
 
-	// Use the regular CompressPDF logic but adjust progress to account for preparation phase (20%)
+	// Use the regular CompressPDF logic with direct paths
 	request := CompressionRequest{
 		Files:            filePaths,
 		CompressionLevel: "good_enough",
@@ -349,6 +326,6 @@ func (h *CompressionHandler) ProcessFileData(fileData []FileUpload) CompressionR
 		request.CompressionLevel = prefs.DefaultCompressionLevel
 	}
 
-	// Process using the regular compression logic
+	// Process using the direct compression logic
 	return h.CompressPDF(request)
 }
