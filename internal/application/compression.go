@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,7 +52,6 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		}
 	}
 
-	// No temp files needed - direct processing
 
 	// Use compression level from preferences if not specified
 	compressionLevel := request.CompressionLevel
@@ -62,15 +60,15 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		if err == nil && prefs != nil {
 			compressionLevel = prefs.DefaultCompressionLevel
 		} else {
-			compressionLevel = "good_enough"
+			compressionLevel = DefaultCompressionLevel
 		}
 	}
 
 	totalFiles := len(request.Files)
 	// Use available CPU cores, but cap at reasonable limit for I/O intensive operations
 	maxConcurrency := runtime.NumCPU()
-	if maxConcurrency > 8 {
-		maxConcurrency = 8 
+	if maxConcurrency > MaxConcurrencyLimit {
+		maxConcurrency = MaxConcurrencyLimit 
 	}
 
 	// Create file work items with unique IDs
@@ -97,7 +95,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		workChan <- work
 
 		// Emit initial file status
-		wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
+		wailsruntime.EventsEmit(h.ctx, EventFileProgress, FileProgressUpdate{
 			FileID:   work.ID,
 			Filename: filepath.Base(work.FilePath),
 			Status:   "queued",
@@ -115,10 +113,13 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 			for work := range workChan {
 				result, err := h.processSingleFileWithProgress(work.ID, work.FilePath, compressionLevel, request.AdvancedOptions, workerID)
 				if err != nil {
-					log.Printf("Error processing file %s: %v", work.FilePath, err)
+					h.config.Logger.Error("Error processing file", 
+						"file", work.FilePath, 
+						"worker_id", workerID,
+						"error", err)
 
 					// Emit error status for this file
-					wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
+					wailsruntime.EventsEmit(h.ctx, EventFileProgress, FileProgressUpdate{
 						FileID:   work.ID,
 						Filename: filepath.Base(work.FilePath),
 						Status:   "error",
@@ -137,7 +138,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 					resultChan <- errorResult
 				} else {
 					// Emit completion status
-					wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
+					wailsruntime.EventsEmit(h.ctx, EventFileProgress, FileProgressUpdate{
 						FileID:   work.ID,
 						Filename: filepath.Base(work.FilePath),
 						Status:   "completed",
@@ -149,7 +150,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 					resultChan <- result
 
 					// Stream individual file result immediately
-					wailsruntime.EventsEmit(h.ctx, "file:completed", result)
+					wailsruntime.EventsEmit(h.ctx, EventFileCompleted, result)
 				}
 				completedCount <- 1
 			}
@@ -178,7 +179,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		completed++
 		// Emit overall progress
 		overallProgress := float64(completed) / float64(totalFiles) * 100
-		wailsruntime.EventsEmit(h.ctx, "compression:progress", map[string]any{
+		wailsruntime.EventsEmit(h.ctx, EventCompressionProgress, map[string]any{
 			"percent":   overallProgress,
 			"current":   completed,
 			"total":     totalFiles,
@@ -187,7 +188,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 	}
 
 	// Final progress update
-	wailsruntime.EventsEmit(h.ctx, "compression:progress", map[string]interface{}{
+	wailsruntime.EventsEmit(h.ctx, EventCompressionProgress, map[string]interface{}{
 		"percent": 100.0,
 		"current": totalFiles,
 		"total":   totalFiles,
@@ -218,7 +219,9 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		for i, result := range results {
 			downloadPath, err := h.filesHandler.SaveFileToDownloadFolder(result, request.DownloadFolder)
 			if err != nil {
-				log.Printf("Error saving file %s: %v", result.OriginalFilename, err)
+				h.config.Logger.Error("Error saving file", 
+					"filename", result.OriginalFilename,
+					"error", err)
 				continue
 			}
 			downloadPaths = append(downloadPaths, downloadPath)
@@ -236,11 +239,11 @@ func (h *CompressionHandler) processSingleFileWithProgress(fileID, filePath, com
 	filename := filepath.Base(filePath)
 
 	// Emit compression status - no copying needed, go straight to compression
-	wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
+	wailsruntime.EventsEmit(h.ctx, EventFileProgress, FileProgressUpdate{
 		FileID:   fileID,
 		Filename: filename,
 		Status:   "compressing",
-		Progress: 20,
+		Progress: DefaultProgressPercent,
 		WorkerID: workerID,
 	})
 
@@ -260,11 +263,11 @@ func (h *CompressionHandler) processSingleFileWithProgress(fileID, filePath, com
 	}
 
 	// Emit completion status
-	wailsruntime.EventsEmit(h.ctx, "file:progress", FileProgressUpdate{
+	wailsruntime.EventsEmit(h.ctx, EventFileProgress, FileProgressUpdate{
 		FileID:   fileID,
 		Filename: filename,
 		Status:   "completed",
-		Progress: 100,
+		Progress: CompletedProgressPercent,
 		WorkerID: workerID,
 	})
 
@@ -314,7 +317,7 @@ func (h *CompressionHandler) ProcessFileData(fileData []FileUpload) CompressionR
 	// Use the regular CompressPDF logic with direct paths
 	request := CompressionRequest{
 		Files:            filePaths,
-		CompressionLevel: "good_enough",
+		CompressionLevel: DefaultCompressionLevel,
 		AutoDownload:     false,
 		DownloadFolder:   "",
 		AdvancedOptions:  nil,

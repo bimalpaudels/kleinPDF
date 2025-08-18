@@ -29,7 +29,7 @@ func (m *StatsManager) UpdateStats(filesCompressed int, dataSaved int64) {
 	m.stats.TotalDataSaved += dataSaved
 
 	// Emit stats update
-	wailsruntime.EventsEmit(m.ctx, "stats:update", m.stats)
+	wailsruntime.EventsEmit(m.ctx, EventStatsUpdate, m.stats)
 }
 
 func (m *StatsManager) GetStats() *AppStats {

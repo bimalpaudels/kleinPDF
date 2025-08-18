@@ -21,7 +21,7 @@ func CopyFile(src, dst string) error {
 
 	// Create destination directory if it doesn't exist
 	destDir := filepath.Dir(dst)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, DefaultFilePermissions); err != nil {
 		return err
 	}
 

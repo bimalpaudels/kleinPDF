@@ -34,7 +34,7 @@ type UserPreferencesData struct {
 func DefaultPreferences() UserPreferencesData {
 	return UserPreferencesData{
 		DefaultDownloadFolder:     "",
-		DefaultCompressionLevel:   "good_enough",
+		DefaultCompressionLevel:   "good_enough", // Keep string literal here as it's part of the model
 		AutoDownloadEnabled:       false,
 		ImageDPI:                  150,
 		ImageQuality:              85,

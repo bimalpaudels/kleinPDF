@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"log"
 
 	"kleinpdf/internal/config"
 	"kleinpdf/internal/database"
@@ -40,14 +39,14 @@ func (a *App) OnStartup(ctx context.Context) {
 	// Initialize database
 	db, err := database.Initialize(cfg.DatabasePath)
 	if err != nil {
-		log.Printf("Failed to initialize database: %v", err)
+		cfg.Logger.Error("Failed to initialize database", "error", err)
 		return
 	}
 
 	// Auto-migrate the schema
 	err = db.AutoMigrate(&model.UserPreferences{})
 	if err != nil {
-		log.Printf("Failed to migrate database: %v", err)
+		cfg.Logger.Error("Failed to migrate database", "error", err)
 		return
 	}
 
@@ -60,10 +59,11 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.preferencesHandler = NewPreferencesHandler(a.prefsService)
 	a.dialogsHandler = NewDialogsHandler(ctx)
 
-	log.Printf("Wails app initialized successfully")
-	log.Printf("Working directory: %s", cfg.WorkingDir)
-	log.Printf("Database path: %s", cfg.DatabasePath)
-	log.Printf("Ghostscript available: %t", a.pdfService.IsGhostscriptAvailable())
+	cfg.Logger.Info("Wails app initialized successfully")
+	cfg.Logger.Info("Application configuration", 
+		"working_directory", cfg.WorkingDir,
+		"database_path", cfg.DatabasePath,
+		"ghostscript_available", a.pdfService.IsGhostscriptAvailable())
 }
 
 func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {

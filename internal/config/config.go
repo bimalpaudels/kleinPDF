@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -15,11 +15,14 @@ type Config struct {
 	DatabasePath    string
 	GhostscriptPath string
 	AppDataDir      string
+	Logger          *slog.Logger
 }
 
 // New creates a new configuration instance
 func New() *Config {
-	cfg := &Config{}
+	cfg := &Config{
+		Logger: slog.Default(),
+	}
 
 	cfg.setupDirectories()
 	cfg.setupGhostscriptPath()
@@ -51,24 +54,24 @@ func (c *Config) setupGhostscriptPath() {
 	// Check if already extracted and valid
 	if c.isValidGhostscriptBinary(gsPath) {
 		c.GhostscriptPath = gsPath
-		log.Printf("Using cached Ghostscript: %s", gsPath)
+		c.Logger.Info("Using cached Ghostscript", "path", gsPath)
 		return
 	}
 
 	// Create directory and extract binary
 	os.MkdirAll(extractDir, 0755)
-	log.Printf("Extracting embedded Ghostscript binary to: %s", gsPath)
+	c.Logger.Info("Extracting embedded Ghostscript binary", "path", gsPath)
 
 	if err := c.extractGhostscriptBinary(gsPath); err != nil {
-		log.Printf("Failed to extract Ghostscript binary: %v", err)
+		c.Logger.Error("Failed to extract Ghostscript binary", "error", err)
 		return
 	}
 
 	if c.isValidGhostscriptBinary(gsPath) {
 		c.GhostscriptPath = gsPath
-		log.Printf("Successfully setup embedded Ghostscript: %s", gsPath)
+		c.Logger.Info("Successfully setup embedded Ghostscript", "path", gsPath)
 	} else {
-		log.Printf("Ghostscript binary setup failed")
+		c.Logger.Error("Ghostscript binary setup failed")
 		os.Remove(gsPath)
 	}
 }
