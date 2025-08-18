@@ -14,52 +14,7 @@ A high-performance PDF compression desktop application built with Wails (Go + We
 - **⚙️ Configurable Settings**: Multiple compression levels and advanced options
 - **📊 Statistics Tracking**: Session and lifetime statistics for files compressed and data saved
 
-## 📁 Project Structure
-
-```
-compressor/
-├── main.go                     # Wails application entry point
-├── wails.json                  # Wails configuration
-├── go.mod                      # Go module dependencies
-├── go.sum                      # Go module checksums
-├── internal/                   # Go application code
-│   ├── application/           # Core application logic
-│   │   ├── app.go            # Main app struct with Wails bindings
-│   │   ├── compression.go    # PDF compression handler with concurrent processing
-│   │   ├── files.go          # File operations and download management
-│   │   ├── preferences.go    # User preferences handler
-│   │   ├── dialogs.go        # Native file/directory dialogs
-│   │   ├── stats.go          # Statistics tracking and management
-│   │   ├── types.go          # Application data structures
-│   │   └── utils.go          # Utility functions
-│   ├── binary/               # Embedded Ghostscript binary management
-│   │   ├── generate.go       # Go generate script for downloading binaries
-│   │   └── script.go         # Binary download and embedding logic
-│   ├── config/               # Configuration management
-│   │   └── config.go         # Application configuration
-│   ├── database/             # Database initialization
-│   │   └── database.go       # SQLite database setup
-│   ├── models/               # Database models
-│   │   └── preferences.go    # User preferences data model
-│   └── services/             # Business logic services
-│       ├── pdf.go            # PDF compression service using Ghostscript
-│       └── preferences.go    # Preferences service
-├── frontend/                 # Preact frontend
-│   ├── src/                  # Source files
-│   │   ├── main.tsx          # Frontend entry point
-│   │   ├── app.tsx           # Main Preact component with UI
-│   │   ├── styles.css        # Tailwind CSS styling
-│   │   └── types/            # TypeScript type definitions
-│   │       └── app.ts        # Frontend type definitions
-│   ├── index.html            # HTML template
-│   ├── package.json          # Frontend dependencies
-│   ├── tsconfig.json         # TypeScript configuration
-│   ├── vite.config.ts        # Vite build configuration
-│   └── wailsjs/              # Auto-generated Wails bindings
-└── build/                    # Built executables (generated)
-```
-
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack
 
 - **Backend**: Go 1.25 with Wails v2 framework
 - **Frontend**: Preact + TypeScript + Vite for fast, lightweight UI
@@ -148,7 +103,3 @@ Supported architectures:
 - **Intel Macs** (amd64): `ghostscript-10.05.1-macos-x86_64`
 
 The binary is embedded directly into the application using Go's `embed` package, eliminating the need for complex archive extraction.
-
-
-
-
