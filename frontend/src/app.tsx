@@ -11,7 +11,7 @@ import {
   OpenFileDialog,
   ShowSaveDialog,
   GetStats,
-} from "../wailsjs/go/application/App";
+} from "../wailsjs/go/app/App";
 import { EventsOn } from "../wailsjs/runtime/runtime";
 
 // Type imports
@@ -26,7 +26,7 @@ import {
 } from "./types/app";
 
 // Global state
-const files = signal<wailsModels.transport.FileResult[]>([]);
+const files = signal<wailsModels.app.FileResult[]>([]);
 const processing = signal<boolean>(false);
 const progress = signal<ProgressData>({
   percent: 0,
@@ -36,7 +36,7 @@ const progress = signal<ProgressData>({
 });
 const selectedCompressionLevel = signal<CompressionLevel>("good_enough");
 // Note: Auto-download functionality removed from backend
-const stats = signal<wailsModels.transport.AppStats>({
+const stats = signal<wailsModels.app.AppStats>({
   session_files_compressed: 0,
   session_data_saved: 0,
   total_files_compressed: 0,
@@ -86,8 +86,7 @@ function App() {
 
   const loadPreferences = async (): Promise<void> => {
     try {
-      const prefs: wailsModels.models.UserPreferencesData =
-        await GetPreferences();
+      const prefs: wailsModels.app.UserPreferencesData = await GetPreferences();
       if (prefs) {
         selectedCompressionLevel.value =
           (prefs.default_compression_level as CompressionLevel) ||
@@ -112,7 +111,7 @@ function App() {
 
   const loadStats = async (): Promise<void> => {
     try {
-      const currentStats: wailsModels.transport.AppStats = await GetStats();
+      const currentStats: wailsModels.app.AppStats = await GetStats();
       if (currentStats) {
         stats.value = currentStats;
       }
@@ -204,7 +203,7 @@ function App() {
       const fileDataArray = await Promise.all(fileDataPromises);
 
       // Process files through Wails backend using file data
-      const results: wailsModels.transport.CompressionResponse =
+      const results: wailsModels.app.CompressionResponse =
         await ProcessFileData(fileDataArray);
 
       if (results.success) {
@@ -224,9 +223,7 @@ function App() {
     }
   };
 
-  const readFileData = (
-    file: File
-  ): Promise<wailsModels.transport.FileUpload> => {
+  const readFileData = (file: File): Promise<wailsModels.app.FileUpload> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -241,7 +238,7 @@ function App() {
         const dataArray = Array.from(uint8Array); // Convert to regular array for JSON serialization
 
         resolve(
-          new wailsModels.transport.FileUpload({
+          new wailsModels.app.FileUpload({
             name: file.name,
             data: dataArray,
             size: file.size,
@@ -271,7 +268,7 @@ function App() {
 
     try {
       // Process files through Wails backend using file paths (from file dialog)
-      const compressionOptions = new wailsModels.services.CompressionOptions({
+      const compressionOptions = new wailsModels.app.CompressionOptions({
         image_dpi: advancedOptions.value.imageDpi,
         image_quality: advancedOptions.value.imageQuality,
         pdf_version: advancedOptions.value.pdfVersion,
@@ -281,14 +278,15 @@ function App() {
         convert_to_grayscale: advancedOptions.value.convertToGrayscale,
       });
 
-      const compressionRequest = new wailsModels.transport.CompressionRequest({
+      const compressionRequest = new wailsModels.app.CompressionRequest({
         files: filePaths,
         compressionLevel: selectedCompressionLevel.value,
         advancedOptions: compressionOptions,
       });
 
-      const results: wailsModels.transport.CompressionResponse =
-        await CompressPDF(compressionRequest);
+      const results: wailsModels.app.CompressionResponse = await CompressPDF(
+        compressionRequest
+      );
 
       if (results.success) {
         files.value = results.files;
@@ -566,7 +564,7 @@ function App() {
 }
 
 const downloadFile = async (
-  file: wailsModels.transport.FileResult
+  file: wailsModels.app.FileResult
 ): Promise<void> => {
   try {
     // Note: saved_path property is not available in the generated model

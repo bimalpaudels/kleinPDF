@@ -1,4 +1,4 @@
-package config
+package app
 
 import (
 	"fmt"
@@ -9,16 +9,8 @@ import (
 	"kleinpdf/internal/binary"
 )
 
-// Config holds application configuration
-type Config struct {
-	DatabasePath    string
-	GhostscriptPath string
-	AppDataDir      string
-	Logger          *slog.Logger
-}
-
-// New creates a new configuration instance
-func New() *Config {
+// NewConfig creates a new configuration instance
+func NewConfig() *Config {
 	cfg := &Config{
 		Logger: slog.Default(),
 	}
@@ -31,16 +23,17 @@ func New() *Config {
 
 func (c *Config) setupDirectories() {
 	// Set up app data directory (database, settings)
-	c.AppDataDir = getAppDataDir()
-	os.MkdirAll(c.AppDataDir, 0755)
+	appDataDir := getAppDataDir()
+	os.MkdirAll(appDataDir, 0755)
 
 	// Database path
-	c.DatabasePath = filepath.Join(c.AppDataDir, "database.sqlite3")
+	c.DatabasePath = filepath.Join(appDataDir, "database.sqlite3")
 }
 
 func (c *Config) setupGhostscriptPath() {
 	// Use embedded binary directly in app data directory for persistence
-	extractDir := filepath.Join(c.AppDataDir, "bin")
+	appDataDir := getAppDataDir()
+	extractDir := filepath.Join(appDataDir, "bin")
 	gsPath := filepath.Join(extractDir, "ghostscript")
 
 	// Check if already extracted and valid

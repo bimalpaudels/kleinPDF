@@ -1,51 +1,15 @@
-package services
+package app
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-
-	"kleinpdf/internal/config"
 )
 
-// PDFService handles PDF compression operations
-type PDFService struct {
-	config *config.Config
-}
-
-// NewPDFService creates a new PDF service
-func NewPDFService(cfg *config.Config) *PDFService {
-	return &PDFService{config: cfg}
-}
-
-// CompressionOptions holds advanced compression options
-type CompressionOptions struct {
-	ImageDPI           int    `json:"image_dpi"`
-	ImageQuality       int    `json:"image_quality"`
-	PDFVersion         string `json:"pdf_version"`
-	RemoveMetadata     bool   `json:"remove_metadata"`
-	EmbedFonts         bool   `json:"embed_fonts"`
-	GenerateThumbnails bool   `json:"generate_thumbnails"`
-	ConvertToGrayscale bool   `json:"convert_to_grayscale"`
-}
-
-// DefaultCompressionOptions returns default compression options
-func DefaultCompressionOptions() CompressionOptions {
-	return CompressionOptions{
-		ImageDPI:           150,
-		ImageQuality:       85,
-		PDFVersion:         "1.4",
-		RemoveMetadata:     false,
-		EmbedFonts:         true,
-		GenerateThumbnails: false,
-		ConvertToGrayscale: false,
-	}
-}
-
-// CompressPDF compresses a PDF file using Ghostscript
-func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string, options *CompressionOptions) error {
-	if s.config.GhostscriptPath == "" {
+// compressPDFFile compresses a PDF file using Ghostscript
+func (a *App) compressPDFFile(inputPath, outputPath, compressionLevel string, options *CompressionOptions) error {
+	if a.config.GhostscriptPath == "" {
 		return fmt.Errorf("ghostscript not found. Please install ghostscript to use this application")
 	}
 
@@ -70,7 +34,7 @@ func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string,
 	if options.ConvertToGrayscale {
 		tempGrayscalePath := strings.Replace(inputPath, ".pdf", "_grayscale_temp.pdf", 1)
 
-		err := s.convertToGrayscale(inputPath, tempGrayscalePath)
+		err := a.convertToGrayscale(inputPath, tempGrayscalePath)
 		if err != nil {
 			return fmt.Errorf("grayscale conversion failed: %v", err)
 		}
@@ -131,7 +95,7 @@ func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string,
 	args = append(args, "-sOutputFile="+outputPath, actualInputPath)
 
 	// Execute Ghostscript command
-	cmd := exec.Command(s.config.GhostscriptPath, args...)
+	cmd := exec.Command(a.config.GhostscriptPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ghostscript failed: %v, output: %s", err, string(output))
@@ -146,7 +110,7 @@ func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string,
 }
 
 // convertToGrayscale converts a PDF to grayscale
-func (s *PDFService) convertToGrayscale(inputPath, outputPath string) error {
+func (a *App) convertToGrayscale(inputPath, outputPath string) error {
 	args := []string{
 		"-sDEVICE=pdfwrite",
 		"-sProcessColorModel=DeviceGray",
@@ -160,7 +124,7 @@ func (s *PDFService) convertToGrayscale(inputPath, outputPath string) error {
 		inputPath,
 	}
 
-	cmd := exec.Command(s.config.GhostscriptPath, args...)
+	cmd := exec.Command(a.config.GhostscriptPath, args...)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -171,11 +135,11 @@ func (s *PDFService) convertToGrayscale(inputPath, outputPath string) error {
 }
 
 // GetGhostscriptPath returns the path to Ghostscript executable
-func (s *PDFService) GetGhostscriptPath() string {
-	return s.config.GhostscriptPath
+func (a *App) GetGhostscriptPath() string {
+	return a.config.GhostscriptPath
 }
 
 // IsGhostscriptAvailable checks if Ghostscript is available
-func (s *PDFService) IsGhostscriptAvailable() bool {
-	return s.config.GhostscriptPath != ""
+func (a *App) IsGhostscriptAvailable() bool {
+	return a.config.GhostscriptPath != ""
 }
