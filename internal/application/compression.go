@@ -44,23 +44,27 @@ func NewCompressionHandler(
 }
 
 func (h *CompressionHandler) CompressPDF(request CompressionRequest) CompressionResponse {
+	return h.CompressPDFWithContext(h.ctx, request)
+}
+
+func (h *CompressionHandler) CompressPDFWithContext(ctx context.Context, request CompressionRequest) CompressionResponse {
 	// Validate input
 	if len(request.Files) == 0 {
+		h.config.Logger.Error("Compression request validation failed", "error", "no files provided")
 		return CompressionResponse{
 			Success: false,
-			Error:   "No files provided",
+			Error:   ErrNoFilesProvided.Error(),
 		}
 	}
 
 
 	// Use compression level from preferences if not specified
-	compressionLevel := request.CompressionLevel
-	if compressionLevel == "" {
-		prefs, err := h.prefsService.GetPreferences()
-		if err == nil && prefs != nil {
-			compressionLevel = prefs.DefaultCompressionLevel
-		} else {
-			compressionLevel = DefaultCompressionLevel
+	compressionLevel, err := h.resolveCompressionLevel(request.CompressionLevel)
+	if err != nil {
+		h.config.Logger.Error("Failed to resolve compression level", "error", err)
+		return CompressionResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to resolve compression level: %v", err),
 		}
 	}
 
@@ -111,12 +115,21 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 		go func(workerID int) {
 			defer wg.Done()
 			for work := range workChan {
-				result, err := h.processSingleFileWithProgress(work.ID, work.FilePath, compressionLevel, request.AdvancedOptions, workerID)
+				// Check for context cancellation
+				select {
+				case <-ctx.Done():
+					h.config.Logger.Info("Compression cancelled by context", "worker_id", workerID)
+					return
+				default:
+				}
+				
+				result, err := h.processSingleFileWithProgress(ctx, work.ID, work.FilePath, compressionLevel, request.AdvancedOptions, workerID)
 				if err != nil {
+					compressionErr := NewCompressionError("processing", work.FilePath, err)
 					h.config.Logger.Error("Error processing file", 
 						"file", work.FilePath, 
 						"worker_id", workerID,
-						"error", err)
+						"error", compressionErr)
 
 					// Emit error status for this file
 					wailsruntime.EventsEmit(h.ctx, EventFileProgress, FileProgressUpdate{
@@ -133,7 +146,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 						FileID:           work.ID,
 						OriginalFilename: filepath.Base(work.FilePath),
 						Status:           "error",
-						Error:            err.Error(),
+						Error:            compressionErr.Error(),
 					}
 					resultChan <- errorResult
 				} else {
@@ -235,7 +248,7 @@ func (h *CompressionHandler) CompressPDF(request CompressionRequest) Compression
 	return response
 }
 
-func (h *CompressionHandler) processSingleFileWithProgress(fileID, filePath, compressionLevel string, advancedOptions *services.CompressionOptions, workerID int) (*FileResult, error) {
+func (h *CompressionHandler) processSingleFileWithProgress(ctx context.Context, fileID, filePath, compressionLevel string, advancedOptions *services.CompressionOptions, workerID int) (*FileResult, error) {
 	filename := filepath.Base(filePath)
 
 	// Emit compression status - no copying needed, go straight to compression
@@ -256,6 +269,13 @@ func (h *CompressionHandler) processSingleFileWithProgress(fileID, filePath, com
 	inputDir := filepath.Dir(filePath)
 	compressedPath := filepath.Join(inputDir, compressedFilename)
 
+	// Check for context cancellation before compression
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	
 	// Direct compression: GS reads from original file, writes to output path
 	err := h.pdfService.CompressPDF(filePath, compressedPath, compressionLevel, advancedOptions)
 	if err != nil {
@@ -331,4 +351,24 @@ func (h *CompressionHandler) ProcessFileData(fileData []FileUpload) CompressionR
 
 	// Process using the direct compression logic
 	return h.CompressPDF(request)
+}
+
+// resolveCompressionLevel determines the appropriate compression level
+func (h *CompressionHandler) resolveCompressionLevel(requestedLevel string) (string, error) {
+	if requestedLevel != "" {
+		return requestedLevel, nil
+	}
+	
+	prefs, err := h.prefsService.GetPreferences()
+	if err != nil {
+		h.config.Logger.Warn("Failed to load preferences, using default compression level", "error", err)
+		return DefaultCompressionLevel, nil
+	}
+	
+	if prefs == nil {
+		h.config.Logger.Debug("No preferences found, using default compression level")
+		return DefaultCompressionLevel, nil
+	}
+	
+	return prefs.DefaultCompressionLevel, nil
 }
