@@ -1,15 +1,15 @@
 package application
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"time"
+
+	"github.com/google/uuid"
 )
 
 func GenerateUUID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	return uuid.New().String()
 }
 
 func CopyFile(src, dst string) error {
