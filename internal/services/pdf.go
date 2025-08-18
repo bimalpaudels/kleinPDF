@@ -179,7 +179,3 @@ func (s *PDFService) GetGhostscriptPath() string {
 func (s *PDFService) IsGhostscriptAvailable() bool {
 	return s.config.GhostscriptPath != ""
 }
-
-
-
-

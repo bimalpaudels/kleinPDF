@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"kleinpdf/internal/common"
+	"kleinpdf/internal/config"
 	compressionDomain "kleinpdf/internal/domain/compression"
 	preferencesDomain "kleinpdf/internal/domain/preferences"
 	statisticsDomain "kleinpdf/internal/domain/statistics"
-	"kleinpdf/internal/config"
 	"kleinpdf/internal/services"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -39,7 +39,7 @@ func (a *PDFProcessorAdapter) CompressPDF(inputPath, outputPath, compressionLeve
 			ConvertToGrayscale: options.ConvertToGrayscale,
 		}
 	}
-	
+
 	return a.service.CompressPDF(inputPath, outputPath, compressionLevel, serviceOptions)
 }
 
@@ -51,7 +51,6 @@ func (a *PDFProcessorAdapter) IsGhostscriptAvailable() bool {
 	return a.service.IsGhostscriptAvailable()
 }
 
-// PreferencesRepositoryAdapter adapts services.PreferencesService to preferencesDomain.Repository
 type PreferencesRepositoryAdapter struct {
 	service *services.PreferencesService
 }
@@ -61,20 +60,20 @@ func (a *PreferencesRepositoryAdapter) GetPreferences() (*preferencesDomain.User
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert service model to domain model
 	return &preferencesDomain.UserPreferencesData{
-		DefaultDownloadFolder:     prefs.DefaultDownloadFolder,
-		DefaultCompressionLevel:   prefs.DefaultCompressionLevel,
-		AutoDownloadEnabled:       prefs.AutoDownloadEnabled,
-		ImageDPI:                  prefs.ImageDPI,
-		ImageQuality:              prefs.ImageQuality,
-		RemoveMetadata:            prefs.RemoveMetadata,
-		EmbedFonts:                prefs.EmbedFonts,
-		GenerateThumbnails:        prefs.GenerateThumbnails,
-		ConvertToGrayscale:        prefs.ConvertToGrayscale,
-		PDFVersion:                prefs.PDFVersion,
-		AdvancedOptionsExpanded:   prefs.AdvancedOptionsExpanded,
+		DefaultDownloadFolder:   prefs.DefaultDownloadFolder,
+		DefaultCompressionLevel: prefs.DefaultCompressionLevel,
+		AutoDownloadEnabled:     prefs.AutoDownloadEnabled,
+		ImageDPI:                prefs.ImageDPI,
+		ImageQuality:            prefs.ImageQuality,
+		RemoveMetadata:          prefs.RemoveMetadata,
+		EmbedFonts:              prefs.EmbedFonts,
+		GenerateThumbnails:      prefs.GenerateThumbnails,
+		ConvertToGrayscale:      prefs.ConvertToGrayscale,
+		PDFVersion:              prefs.PDFVersion,
+		AdvancedOptionsExpanded: prefs.AdvancedOptionsExpanded,
 	}, nil
 }
 
@@ -86,7 +85,6 @@ func (a *PreferencesRepositoryAdapter) GetDownloadFolder() (string, error) {
 	return a.service.GetDownloadFolder()
 }
 
-// CompressionServiceImpl implements the compression domain service
 type CompressionServiceImpl struct {
 	processor compressionDomain.PDFProcessor
 	prefsRepo preferencesDomain.Repository

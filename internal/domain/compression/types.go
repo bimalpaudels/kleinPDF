@@ -11,7 +11,6 @@ type CompressionOptions struct {
 	ConvertToGrayscale bool   `json:"convert_to_grayscale"`
 }
 
-// DefaultCompressionOptions returns default compression options
 func DefaultCompressionOptions() CompressionOptions {
 	return CompressionOptions{
 		ImageDPI:           150,
@@ -24,16 +23,14 @@ func DefaultCompressionOptions() CompressionOptions {
 	}
 }
 
-// CompressionRequest represents a request to compress PDF files
 type CompressionRequest struct {
-	Files            []string             `json:"files"`
+	Files            []string            `json:"files"`
 	CompressionLevel string              `json:"compressionLevel"`
 	AutoDownload     bool                `json:"autoDownload"`
 	DownloadFolder   string              `json:"downloadFolder"`
 	AdvancedOptions  *CompressionOptions `json:"advancedOptions"`
 }
 
-// CompressionResponse represents the result of a compression operation
 type CompressionResponse struct {
 	Success                 bool         `json:"success"`
 	Files                   []FileResult `json:"files"`
@@ -47,7 +44,6 @@ type CompressionResponse struct {
 	Error                   string       `json:"error,omitempty"`
 }
 
-// FileResult represents the result of compressing a single file
 type FileResult struct {
 	FileID             string  `json:"file_id"`
 	OriginalFilename   string  `json:"original_filename"`
@@ -61,14 +57,12 @@ type FileResult struct {
 	Error              string  `json:"error,omitempty"`
 }
 
-// FileUpload represents an uploaded file for processing
 type FileUpload struct {
 	Name string `json:"name"`
 	Data []byte `json:"data"`
 	Size int64  `json:"size"`
 }
 
-// FileProgressUpdate represents progress updates during compression
 type FileProgressUpdate struct {
 	FileID   string  `json:"file_id"`
 	Filename string  `json:"filename"`

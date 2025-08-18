@@ -44,7 +44,7 @@ func (a *App) OnStartup(ctx context.Context) {
 
 	// Initialize dependency container
 	a.container = container.New(ctx, cfg, db)
-	
+
 	// Initialize transport layer
 	a.wailsApp = transport.NewWailsApp(
 		ctx,
@@ -54,7 +54,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	)
 
 	cfg.Logger.Info("Wails app initialized successfully")
-	cfg.Logger.Info("Application configuration", 
+	cfg.Logger.Info("Application configuration",
 		"working_directory", cfg.WorkingDir,
 		"database_path", cfg.DatabasePath,
 		"ghostscript_available", true) // We'll get this from container later

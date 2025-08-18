@@ -4,12 +4,11 @@ import (
 	"context"
 
 	compressionDomain "kleinpdf/internal/domain/compression"
-	preferencesDomain "kleinpdf/internal/domain/preferences"  
+	preferencesDomain "kleinpdf/internal/domain/preferences"
 	statisticsDomain "kleinpdf/internal/domain/statistics"
 	"kleinpdf/internal/models"
 )
 
-// WailsApp provides the transport layer for Wails application
 type WailsApp struct {
 	ctx                context.Context
 	compressionService compressionDomain.Service
@@ -18,7 +17,6 @@ type WailsApp struct {
 	dialogsHandler     DialogHandler
 }
 
-// NewWailsApp creates a new Wails transport adapter
 func NewWailsApp(
 	ctx context.Context,
 	compressionService compressionDomain.Service,
@@ -34,7 +32,6 @@ func NewWailsApp(
 	}
 }
 
-// CompressPDF handles PDF compression requests from the frontend
 func (a *WailsApp) CompressPDF(request CompressionRequest) CompressionResponse {
 	// Convert transport request to domain request
 	domainRequest := compressionDomain.CompressionRequest{
@@ -91,7 +88,6 @@ func (a *WailsApp) CompressPDF(request CompressionRequest) CompressionResponse {
 	}
 }
 
-// ProcessFileData handles file upload processing
 func (a *WailsApp) ProcessFileData(fileData []FileUpload) CompressionResponse {
 	// Convert transport file data to domain file data
 	domainFileData := make([]compressionDomain.FileUpload, len(fileData))
@@ -137,7 +133,6 @@ func (a *WailsApp) ProcessFileData(fileData []FileUpload) CompressionResponse {
 	}
 }
 
-// GetPreferences gets user preferences
 func (a *WailsApp) GetPreferences() (*models.UserPreferencesData, error) {
 	domainPrefs, err := a.preferencesRepo.GetPreferences()
 	if err != nil {
@@ -146,21 +141,20 @@ func (a *WailsApp) GetPreferences() (*models.UserPreferencesData, error) {
 
 	// Convert domain model to transport model
 	return &models.UserPreferencesData{
-		DefaultDownloadFolder:     domainPrefs.DefaultDownloadFolder,
-		DefaultCompressionLevel:   domainPrefs.DefaultCompressionLevel,
-		AutoDownloadEnabled:       domainPrefs.AutoDownloadEnabled,
-		ImageDPI:                  domainPrefs.ImageDPI,
-		ImageQuality:              domainPrefs.ImageQuality,
-		RemoveMetadata:            domainPrefs.RemoveMetadata,
-		EmbedFonts:                domainPrefs.EmbedFonts,
-		GenerateThumbnails:        domainPrefs.GenerateThumbnails,
-		ConvertToGrayscale:        domainPrefs.ConvertToGrayscale,
-		PDFVersion:                domainPrefs.PDFVersion,
-		AdvancedOptionsExpanded:   domainPrefs.AdvancedOptionsExpanded,
+		DefaultDownloadFolder:   domainPrefs.DefaultDownloadFolder,
+		DefaultCompressionLevel: domainPrefs.DefaultCompressionLevel,
+		AutoDownloadEnabled:     domainPrefs.AutoDownloadEnabled,
+		ImageDPI:                domainPrefs.ImageDPI,
+		ImageQuality:            domainPrefs.ImageQuality,
+		RemoveMetadata:          domainPrefs.RemoveMetadata,
+		EmbedFonts:              domainPrefs.EmbedFonts,
+		GenerateThumbnails:      domainPrefs.GenerateThumbnails,
+		ConvertToGrayscale:      domainPrefs.ConvertToGrayscale,
+		PDFVersion:              domainPrefs.PDFVersion,
+		AdvancedOptionsExpanded: domainPrefs.AdvancedOptionsExpanded,
 	}, nil
 }
 
-// UpdatePreferences updates user preferences
 func (a *WailsApp) UpdatePreferences(data map[string]interface{}) error {
 	// Convert interface{} to any for domain layer
 	anyData := make(map[string]any, len(data))
@@ -170,32 +164,26 @@ func (a *WailsApp) UpdatePreferences(data map[string]interface{}) error {
 	return a.preferencesRepo.UpdatePreferences(anyData)
 }
 
-// OpenFileDialog opens a file selection dialog
 func (a *WailsApp) OpenFileDialog() ([]string, error) {
 	return a.dialogsHandler.OpenFileDialog()
 }
 
-// OpenDirectoryDialog opens a directory selection dialog
 func (a *WailsApp) OpenDirectoryDialog() (string, error) {
 	return a.dialogsHandler.OpenDirectoryDialog()
 }
 
-// ShowSaveDialog shows a save file dialog
 func (a *WailsApp) ShowSaveDialog(filename string) (string, error) {
 	return a.dialogsHandler.ShowSaveDialog(filename)
 }
 
-// OpenFile opens a file in the default application
 func (a *WailsApp) OpenFile(filePath string) error {
 	return a.dialogsHandler.OpenFile(filePath)
 }
 
-// GetAppStatus gets application status information
 func (a *WailsApp) GetAppStatus() map[string]interface{} {
 	return a.statisticsService.GetAppStatus("")
 }
 
-// GetStats gets application statistics
 func (a *WailsApp) GetStats() *AppStats {
 	domainStats := a.statisticsService.GetStats()
 	return &AppStats{
