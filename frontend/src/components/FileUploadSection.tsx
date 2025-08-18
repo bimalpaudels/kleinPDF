@@ -1,4 +1,4 @@
-import { processing } from "../../hooks/useFileProcessing";
+import { processing } from "../hooks/useFileProcessing";
 import { DragDropZone } from "./DragDropZone";
 import { ProgressBar } from "./ProgressBar";
 import { FileList } from "./FileList";

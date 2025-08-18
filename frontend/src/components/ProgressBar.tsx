@@ -1,4 +1,4 @@
-import { progress } from "../../hooks/useFileProcessing";
+import { progress } from "../hooks/useFileProcessing";
 
 export const ProgressBar = () => {
   return (

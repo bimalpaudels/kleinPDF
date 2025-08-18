@@ -1,4 +1,4 @@
-import { useFileProcessing } from "../../hooks/useFileProcessing";
+import { useFileProcessing } from "../hooks/useFileProcessing";
 
 export const DragDropZone = () => {
   const {

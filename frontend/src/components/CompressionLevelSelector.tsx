@@ -1,8 +1,8 @@
 import {
   selectedCompressionLevel,
   savePreferences,
-} from "../../hooks/usePreferences";
-import { CompressionOption } from "../../types/app";
+} from "../hooks/usePreferences";
+import { CompressionOption } from "../types/app";
 
 export const CompressionLevelSelector = () => {
   const compressionOptions: CompressionOption[] = [

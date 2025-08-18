@@ -1,5 +1,5 @@
-import { stats } from "../../hooks/useStats";
-import { formatBytes, formatNumber } from "../../utils/formatters";
+import { stats } from "../hooks/useStats";
+import { formatBytes, formatNumber } from "../utils/formatters";
 
 export const Header = () => {
   return (

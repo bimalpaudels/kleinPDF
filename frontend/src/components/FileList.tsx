@@ -1,7 +1,7 @@
-import { files } from "../../hooks/useFileProcessing";
-import { formatBytes } from "../../utils/formatters";
-import { downloadFile } from "../../utils/fileUtils";
-import * as wailsModels from "../../../wailsjs/go/models";
+import { files } from "../hooks/useFileProcessing";
+import { formatBytes } from "../utils/formatters";
+import { downloadFile } from "../utils/fileUtils";
+import * as wailsModels from "../../wailsjs/go/models";
 
 export const FileList = () => {
   if (files.value.length === 0) return null;

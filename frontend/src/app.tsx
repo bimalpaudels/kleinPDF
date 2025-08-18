@@ -1,9 +1,9 @@
 import "./styles.css";
 
 // Component imports
-import { Header } from "./components/Header/Header";
-import { FileUploadSection } from "./components/FileUpload/FileUploadSection";
-import { SettingsSidebar } from "./components/CompressionSettings/SettingsSidebar";
+import { Header } from "./components/Header";
+import { FileUploadSection } from "./components/FileUploadSection";
+import { SettingsSidebar } from "./components/SettingsSidebar";
 
 // Hook imports
 import { usePreferences } from "./hooks/usePreferences";
