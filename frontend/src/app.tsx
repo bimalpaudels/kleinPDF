@@ -86,7 +86,8 @@ function App() {
 
   const loadPreferences = async (): Promise<void> => {
     try {
-      const prefs: wailsModels.app.UserPreferencesData = await GetPreferences();
+      const prefs: wailsModels.database.UserPreferencesData =
+        await GetPreferences();
       if (prefs) {
         selectedCompressionLevel.value =
           (prefs.default_compression_level as CompressionLevel) ||
@@ -268,15 +269,17 @@ function App() {
 
     try {
       // Process files through Wails backend using file paths (from file dialog)
-      const compressionOptions = new wailsModels.app.CompressionOptions({
-        image_dpi: advancedOptions.value.imageDpi,
-        image_quality: advancedOptions.value.imageQuality,
-        pdf_version: advancedOptions.value.pdfVersion,
-        remove_metadata: advancedOptions.value.removeMetadata,
-        embed_fonts: advancedOptions.value.embedFonts,
-        generate_thumbnails: advancedOptions.value.generateThumbnails,
-        convert_to_grayscale: advancedOptions.value.convertToGrayscale,
-      });
+      const compressionOptions = new wailsModels.compression.CompressionOptions(
+        {
+          image_dpi: advancedOptions.value.imageDpi,
+          image_quality: advancedOptions.value.imageQuality,
+          pdf_version: advancedOptions.value.pdfVersion,
+          remove_metadata: advancedOptions.value.removeMetadata,
+          embed_fonts: advancedOptions.value.embedFonts,
+          generate_thumbnails: advancedOptions.value.generateThumbnails,
+          convert_to_grayscale: advancedOptions.value.convertToGrayscale,
+        }
+      );
 
       const compressionRequest = new wailsModels.app.CompressionRequest({
         files: filePaths,

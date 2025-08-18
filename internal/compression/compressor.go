@@ -1,15 +1,30 @@
-package app
+package compression
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 )
 
-// compressPDFFile compresses a PDF file using Ghostscript
-func (a *App) compressPDFFile(inputPath, outputPath, compressionLevel string, options *CompressionOptions) error {
-	if a.config.GhostscriptPath == "" {
+// Compressor handles PDF compression operations
+type Compressor struct {
+	ghostscriptPath string
+	logger          *slog.Logger
+}
+
+// NewCompressor creates a new compressor instance
+func NewCompressor(ghostscriptPath string, logger *slog.Logger) *Compressor {
+	return &Compressor{
+		ghostscriptPath: ghostscriptPath,
+		logger:          logger,
+	}
+}
+
+// CompressFile compresses a PDF file using Ghostscript
+func (c *Compressor) CompressFile(inputPath, outputPath, compressionLevel string, options *CompressionOptions) error {
+	if c.ghostscriptPath == "" {
 		return fmt.Errorf("ghostscript not found. Please install ghostscript to use this application")
 	}
 
@@ -34,7 +49,7 @@ func (a *App) compressPDFFile(inputPath, outputPath, compressionLevel string, op
 	if options.ConvertToGrayscale {
 		tempGrayscalePath := strings.Replace(inputPath, ".pdf", "_grayscale_temp.pdf", 1)
 
-		err := a.convertToGrayscale(inputPath, tempGrayscalePath)
+		err := c.ConvertToGrayscale(inputPath, tempGrayscalePath)
 		if err != nil {
 			return fmt.Errorf("grayscale conversion failed: %v", err)
 		}
@@ -95,7 +110,7 @@ func (a *App) compressPDFFile(inputPath, outputPath, compressionLevel string, op
 	args = append(args, "-sOutputFile="+outputPath, actualInputPath)
 
 	// Execute Ghostscript command
-	cmd := exec.Command(a.config.GhostscriptPath, args...)
+	cmd := exec.Command(c.ghostscriptPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ghostscript failed: %v, output: %s", err, string(output))
@@ -109,8 +124,8 @@ func (a *App) compressPDFFile(inputPath, outputPath, compressionLevel string, op
 	return nil
 }
 
-// convertToGrayscale converts a PDF to grayscale
-func (a *App) convertToGrayscale(inputPath, outputPath string) error {
+// ConvertToGrayscale converts a PDF to grayscale
+func (c *Compressor) ConvertToGrayscale(inputPath, outputPath string) error {
 	args := []string{
 		"-sDEVICE=pdfwrite",
 		"-sProcessColorModel=DeviceGray",
@@ -124,7 +139,7 @@ func (a *App) convertToGrayscale(inputPath, outputPath string) error {
 		inputPath,
 	}
 
-	cmd := exec.Command(a.config.GhostscriptPath, args...)
+	cmd := exec.Command(c.ghostscriptPath, args...)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -134,12 +149,12 @@ func (a *App) convertToGrayscale(inputPath, outputPath string) error {
 	return nil
 }
 
-// GetGhostscriptPath returns the path to Ghostscript executable
-func (a *App) GetGhostscriptPath() string {
-	return a.config.GhostscriptPath
+// IsAvailable checks if Ghostscript is available
+func (c *Compressor) IsAvailable() bool {
+	return c.ghostscriptPath != ""
 }
 
-// IsGhostscriptAvailable checks if Ghostscript is available
-func (a *App) IsGhostscriptAvailable() bool {
-	return a.config.GhostscriptPath != ""
+// GetGhostscriptPath returns the path to Ghostscript executable
+func (c *Compressor) GetGhostscriptPath() string {
+	return c.ghostscriptPath
 }
