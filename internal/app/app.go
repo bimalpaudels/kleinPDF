@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"kleinpdf/internal/common"
+	"kleinpdf/internal/compression"
+	"kleinpdf/internal/database"
 )
 
 // NewApp creates a new application instance
@@ -26,11 +28,15 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.config = NewConfig()
 
 	// Initialize database
-	err := a.InitDatabase()
+	db, err := database.NewDatabase(a.config.DatabasePath)
 	if err != nil {
 		a.config.Logger.Error("Failed to initialize database", "error", err)
 		return
 	}
+	a.db = db
+
+	// Initialize compressor
+	a.compressor = compression.NewCompressor(a.config.GhostscriptPath, a.config.Logger)
 
 	// Initialize stats
 	a.stats = &AppStats{}
@@ -38,7 +44,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.config.Logger.Info("Wails app initialized successfully")
 	a.config.Logger.Info("Application configuration",
 		"database_path", a.config.DatabasePath,
-		"ghostscript_available", a.IsGhostscriptAvailable())
+		"ghostscript_available", a.compressor.IsAvailable())
 }
 
 // CompressPDF handles PDF compression requests
@@ -193,7 +199,7 @@ func (a *App) ProcessFileData(fileData []FileUpload) CompressionResponse {
 	}
 
 	// Load preferences for compression level
-	prefs, err := a.GetPreferences()
+	prefs, err := a.db.GetPreferences()
 	if err == nil && prefs != nil {
 		request.CompressionLevel = prefs.DefaultCompressionLevel
 	}
@@ -207,8 +213,8 @@ func (a *App) GetAppStatus() map[string]interface{} {
 		"status":                "running",
 		"framework":             "Wails + Preact",
 		"app_name":              "KleinPDF",
-		"ghostscript_path":      a.GetGhostscriptPath(),
-		"ghostscript_available": a.IsGhostscriptAvailable(),
+		"ghostscript_path":      a.compressor.GetGhostscriptPath(),
+		"ghostscript_available": a.compressor.IsAvailable(),
 	}
 }
 
@@ -218,7 +224,7 @@ func (a *App) GetStats() *AppStats {
 }
 
 // processSingleFile processes a single PDF file
-func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advancedOptions *CompressionOptions, _ int) (*FileResult, error) {
+func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advancedOptions *compression.CompressionOptions, _ int) (*FileResult, error) {
 	filename := filepath.Base(filePath)
 
 	// Create timestamp-based filename for compressed file
@@ -238,7 +244,7 @@ func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advan
 	}
 
 	// Direct compression
-	err := a.compressPDFFile(filePath, compressedPath, compressionLevel, advancedOptions)
+	err := a.compressor.CompressFile(filePath, compressedPath, compressionLevel, advancedOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +281,7 @@ func (a *App) resolveCompressionLevel(requestedLevel string) (string, error) {
 		return requestedLevel, nil
 	}
 
-	prefs, err := a.GetPreferences()
+	prefs, err := a.db.GetPreferences()
 	if err != nil {
 		a.config.Logger.Warn("Failed to load preferences, using default compression level", "error", err)
 		return common.DefaultCompressionLevel, nil

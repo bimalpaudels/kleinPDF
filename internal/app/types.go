@@ -2,20 +2,19 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
-	"time"
 
-	"gorm.io/gorm"
+	"kleinpdf/internal/compression"
+	"kleinpdf/internal/database"
 )
 
 // App represents the main application structure
 type App struct {
-	ctx         context.Context
-	config      *Config
-	db          *gorm.DB
-	preferences *UserPreferences
-	stats       *AppStats
+	ctx        context.Context
+	config     *Config
+	db         *database.Database
+	compressor *compression.Compressor
+	stats      *AppStats
 }
 
 // Config holds application configuration
@@ -25,35 +24,12 @@ type Config struct {
 	Logger          *slog.Logger
 }
 
-// CompressionOptions holds advanced compression options for PDF processing
-type CompressionOptions struct {
-	ImageDPI           int    `json:"image_dpi"`
-	ImageQuality       int    `json:"image_quality"`
-	PDFVersion         string `json:"pdf_version"`
-	RemoveMetadata     bool   `json:"remove_metadata"`
-	EmbedFonts         bool   `json:"embed_fonts"`
-	GenerateThumbnails bool   `json:"generate_thumbnails"`
-	ConvertToGrayscale bool   `json:"convert_to_grayscale"`
-}
-
-// DefaultCompressionOptions returns default compression options
-func DefaultCompressionOptions() CompressionOptions {
-	return CompressionOptions{
-		ImageDPI:           150,
-		ImageQuality:       85,
-		PDFVersion:         "1.4",
-		RemoveMetadata:     false,
-		EmbedFonts:         true,
-		GenerateThumbnails: false,
-		ConvertToGrayscale: false,
-	}
-}
 
 // CompressionRequest represents a PDF compression request
 type CompressionRequest struct {
-	Files            []string            `json:"files"`
-	CompressionLevel string              `json:"compressionLevel"`
-	AdvancedOptions  *CompressionOptions `json:"advancedOptions"`
+	Files            []string                     `json:"files"`
+	CompressionLevel string                       `json:"compressionLevel"`
+	AdvancedOptions  *compression.CompressionOptions `json:"advancedOptions"`
 }
 
 // CompressionResponse represents the result of a compression operation
@@ -94,65 +70,4 @@ type AppStats struct {
 	TotalDataSaved         int64 `json:"total_data_saved"`
 	SessionFilesCompressed int   `json:"session_files_compressed"`
 	SessionDataSaved       int64 `json:"session_data_saved"`
-}
-
-// UserPreferences database model
-type UserPreferences struct {
-	ID              uint      `gorm:"primaryKey" json:"id"`
-	PreferencesJSON string    `gorm:"type:text" json:"preferences_json"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-// UserPreferencesData represents user preferences data
-type UserPreferencesData struct {
-	DefaultCompressionLevel string `json:"default_compression_level"`
-	ImageDPI                int    `json:"image_dpi"`
-	ImageQuality            int    `json:"image_quality"`
-	RemoveMetadata          bool   `json:"remove_metadata"`
-	EmbedFonts              bool   `json:"embed_fonts"`
-	GenerateThumbnails      bool   `json:"generate_thumbnails"`
-	ConvertToGrayscale      bool   `json:"convert_to_grayscale"`
-	PDFVersion              string `json:"pdf_version"`
-	AdvancedOptionsExpanded bool   `json:"advanced_options_expanded"`
-}
-
-// DefaultPreferences returns default user preferences
-func DefaultPreferences() UserPreferencesData {
-	return UserPreferencesData{
-		DefaultCompressionLevel: "good_enough",
-		ImageDPI:                150,
-		ImageQuality:            85,
-		RemoveMetadata:          false,
-		EmbedFonts:              true,
-		GenerateThumbnails:      false,
-		ConvertToGrayscale:      false,
-		PDFVersion:              "1.4",
-		AdvancedOptionsExpanded: false,
-	}
-}
-
-// GetPreferences returns the user preferences data
-func (up *UserPreferences) GetPreferences() UserPreferencesData {
-	if up.PreferencesJSON == "" {
-		return DefaultPreferences()
-	}
-
-	var prefs UserPreferencesData
-	if err := json.Unmarshal([]byte(up.PreferencesJSON), &prefs); err != nil {
-		return DefaultPreferences()
-	}
-
-	return prefs
-}
-
-// SetPreferences sets the user preferences data
-func (up *UserPreferences) SetPreferences(prefs UserPreferencesData) error {
-	data, err := json.Marshal(prefs)
-	if err != nil {
-		return err
-	}
-
-	up.PreferencesJSON = string(data)
-	return nil
 }
