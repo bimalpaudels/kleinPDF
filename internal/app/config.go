@@ -1,25 +1,19 @@
-package config
+package app
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"kleinpdf/internal/binary"
 )
 
-// Config holds application configuration
-type Config struct {
-	WorkingDir      string
-	DatabasePath    string
-	GhostscriptPath string
-	AppDataDir      string
-}
-
-// New creates a new configuration instance
-func New() *Config {
-	cfg := &Config{}
+// NewConfig creates a new configuration instance
+func NewConfig() *Config {
+	cfg := &Config{
+		Logger: slog.Default(),
+	}
 
 	cfg.setupDirectories()
 	cfg.setupGhostscriptPath()
@@ -28,47 +22,41 @@ func New() *Config {
 }
 
 func (c *Config) setupDirectories() {
-	// Set up working directory (temp files)
-	tempDir := os.TempDir()
-	c.WorkingDir = filepath.Join(tempDir, "KleinPDF", "workspace")
-
-	// Ensure working directory exists
-	os.MkdirAll(c.WorkingDir, 0755)
-
 	// Set up app data directory (database, settings)
-	c.AppDataDir = getAppDataDir()
-	os.MkdirAll(c.AppDataDir, 0755)
+	appDataDir := getAppDataDir()
+	os.MkdirAll(appDataDir, 0755)
 
 	// Database path
-	c.DatabasePath = filepath.Join(c.AppDataDir, "database.sqlite3")
+	c.DatabasePath = filepath.Join(appDataDir, "database.sqlite3")
 }
 
 func (c *Config) setupGhostscriptPath() {
-	// Use embedded binary directly
-	extractDir := filepath.Join(os.TempDir(), "KleinPDF", "bin")
+	// Use embedded binary directly in app data directory for persistence
+	appDataDir := getAppDataDir()
+	extractDir := filepath.Join(appDataDir, "bin")
 	gsPath := filepath.Join(extractDir, "ghostscript")
 
 	// Check if already extracted and valid
 	if c.isValidGhostscriptBinary(gsPath) {
 		c.GhostscriptPath = gsPath
-		log.Printf("Using cached Ghostscript: %s", gsPath)
+		c.Logger.Info("Using cached Ghostscript", "path", gsPath)
 		return
 	}
 
 	// Create directory and extract binary
 	os.MkdirAll(extractDir, 0755)
-	log.Printf("Extracting embedded Ghostscript binary to: %s", gsPath)
+	c.Logger.Info("Extracting embedded Ghostscript binary", "path", gsPath)
 
 	if err := c.extractGhostscriptBinary(gsPath); err != nil {
-		log.Printf("Failed to extract Ghostscript binary: %v", err)
+		c.Logger.Error("Failed to extract Ghostscript binary", "error", err)
 		return
 	}
 
 	if c.isValidGhostscriptBinary(gsPath) {
 		c.GhostscriptPath = gsPath
-		log.Printf("Successfully setup embedded Ghostscript: %s", gsPath)
+		c.Logger.Info("Successfully setup embedded Ghostscript", "path", gsPath)
 	} else {
-		log.Printf("Ghostscript binary setup failed")
+		c.Logger.Error("Ghostscript binary setup failed")
 		os.Remove(gsPath)
 	}
 }

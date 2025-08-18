@@ -9,15 +9,13 @@ import {
   GetPreferences,
   UpdatePreferences,
   OpenFileDialog,
-  OpenDirectoryDialog,
   ShowSaveDialog,
-  OpenFile,
   GetStats,
-} from "../wailsjs/go/application/App";
+} from "../wailsjs/go/app/App";
 import { EventsOn } from "../wailsjs/runtime/runtime";
 
 // Type imports
-import { application, models, services } from "../wailsjs/go/models";
+import * as wailsModels from "../wailsjs/go/models";
 import {
   ProgressData,
   AdvancedOptions,
@@ -28,7 +26,7 @@ import {
 } from "./types/app";
 
 // Global state
-const files = signal<application.FileResult[]>([]);
+const files = signal<wailsModels.app.FileResult[]>([]);
 const processing = signal<boolean>(false);
 const progress = signal<ProgressData>({
   percent: 0,
@@ -37,9 +35,8 @@ const progress = signal<ProgressData>({
   file: "",
 });
 const selectedCompressionLevel = signal<CompressionLevel>("good_enough");
-const autoDownload = signal<boolean>(true);
-const downloadFolder = signal<string>("");
-const stats = signal<application.AppStats>({
+// Note: Auto-download functionality removed from backend
+const stats = signal<wailsModels.app.AppStats>({
   session_files_compressed: 0,
   session_data_saved: 0,
   total_files_compressed: 0,
@@ -89,13 +86,12 @@ function App() {
 
   const loadPreferences = async (): Promise<void> => {
     try {
-      const prefs: models.UserPreferencesData = await GetPreferences();
+      const prefs: wailsModels.app.UserPreferencesData = await GetPreferences();
       if (prefs) {
         selectedCompressionLevel.value =
           (prefs.default_compression_level as CompressionLevel) ||
           "good_enough";
-        autoDownload.value = prefs.auto_download_enabled || true;
-        downloadFolder.value = prefs.default_download_folder || "";
+        // Note: Auto-download and download folder properties removed from backend
 
         // Load advanced options
         advancedOptions.value = {
@@ -115,7 +111,7 @@ function App() {
 
   const loadStats = async (): Promise<void> => {
     try {
-      const currentStats: application.AppStats = await GetStats();
+      const currentStats: wailsModels.app.AppStats = await GetStats();
       if (currentStats) {
         stats.value = currentStats;
       }
@@ -207,9 +203,8 @@ function App() {
       const fileDataArray = await Promise.all(fileDataPromises);
 
       // Process files through Wails backend using file data
-      const results: application.CompressionResponse = await ProcessFileData(
-        fileDataArray
-      );
+      const results: wailsModels.app.CompressionResponse =
+        await ProcessFileData(fileDataArray);
 
       if (results.success) {
         files.value = results.files;
@@ -228,7 +223,7 @@ function App() {
     }
   };
 
-  const readFileData = (file: File): Promise<application.FileUpload> => {
+  const readFileData = (file: File): Promise<wailsModels.app.FileUpload> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -243,7 +238,7 @@ function App() {
         const dataArray = Array.from(uint8Array); // Convert to regular array for JSON serialization
 
         resolve(
-          new application.FileUpload({
+          new wailsModels.app.FileUpload({
             name: file.name,
             data: dataArray,
             size: file.size,
@@ -273,7 +268,7 @@ function App() {
 
     try {
       // Process files through Wails backend using file paths (from file dialog)
-      const compressionOptions = new services.CompressionOptions({
+      const compressionOptions = new wailsModels.app.CompressionOptions({
         image_dpi: advancedOptions.value.imageDpi,
         image_quality: advancedOptions.value.imageQuality,
         pdf_version: advancedOptions.value.pdfVersion,
@@ -283,28 +278,20 @@ function App() {
         convert_to_grayscale: advancedOptions.value.convertToGrayscale,
       });
 
-      const compressionRequest = new application.CompressionRequest({
+      const compressionRequest = new wailsModels.app.CompressionRequest({
         files: filePaths,
         compressionLevel: selectedCompressionLevel.value,
-        autoDownload: autoDownload.value,
-        downloadFolder: downloadFolder.value,
         advancedOptions: compressionOptions,
       });
 
-      const results: application.CompressionResponse = await CompressPDF(
+      const results: wailsModels.app.CompressionResponse = await CompressPDF(
         compressionRequest
       );
 
       if (results.success) {
         files.value = results.files;
 
-        if (autoDownload.value && results.auto_download) {
-          // Handle auto-download completed files
-          console.log(
-            "Files automatically downloaded:",
-            results.download_paths
-          );
-        }
+        // Note: Auto-download functionality removed from backend
       } else {
         throw new Error(results.error);
       }
@@ -517,7 +504,7 @@ function App() {
                           className="text-white border-none py-2 px-4 rounded-md text-xs font-semibold cursor-pointer btn-pdf-red"
                           onClick={() => downloadFile(file)}
                         >
-                          {file.saved_path ? "Open" : "Download"}
+                          Download
                         </button>
                       </div>
                     </div>
@@ -568,78 +555,7 @@ function App() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-border-default">
-              <h3 className="text-base font-semibold mb-3 text-text-primary">
-                Download Settings
-              </h3>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <div
-                  className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all duration-200 shrink-0 mt-0.5 ${
-                    autoDownload.value
-                      ? "bg-pdf-red border-pdf-red"
-                      : "bg-bg-secondary border-border-default"
-                  }`}
-                  onClick={() => {
-                    autoDownload.value = !autoDownload.value;
-                    savePreferences({
-                      auto_download_enabled: autoDownload.value,
-                    });
-                  }}
-                >
-                  {autoDownload.value && (
-                    <span className="text-white text-xs font-bold">✓</span>
-                  )}
-                </div>
-                <div className="text-sm leading-tight text-text-primary">
-                  Automatically download converted files
-                </div>
-              </label>
-
-              {autoDownload.value && (
-                <div className="mt-4 pt-4 border-t border-border-default">
-                  <label className="block mb-2 font-semibold text-sm text-text-primary">
-                    Download Folder
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={downloadFolder.value}
-                      onChange={(e) => {
-                        const target = e.target as HTMLInputElement;
-                        downloadFolder.value = target.value;
-                        savePreferences({
-                          default_download_folder: target.value,
-                        });
-                      }}
-                      placeholder="Enter download folder path"
-                      className="flex-1 py-2 px-3 border-2 border-border-default rounded-md text-xs focus:outline-hidden font-mono input-focus bg-bg-secondary text-text-primary"
-                    />
-                    <button
-                      className="text-white border-none py-2 px-3 rounded-md text-xs font-semibold cursor-pointer whitespace-nowrap btn-pdf-red"
-                      onClick={async () => {
-                        try {
-                          const selectedFolder: string =
-                            await OpenDirectoryDialog();
-                          if (selectedFolder) {
-                            downloadFolder.value = selectedFolder;
-                            savePreferences({
-                              default_download_folder: selectedFolder,
-                            });
-                          }
-                        } catch (error) {
-                          console.error(
-                            "Error opening directory dialog:",
-                            error
-                          );
-                        }
-                      }}
-                    >
-                      Browse
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Download Settings section removed - auto-download functionality not available in backend */}
           </aside>
         </div>
       </main>
@@ -647,18 +563,16 @@ function App() {
   );
 }
 
-const downloadFile = async (file: application.FileResult): Promise<void> => {
+const downloadFile = async (
+  file: wailsModels.app.FileResult
+): Promise<void> => {
   try {
-    if (file.saved_path) {
-      // File is already saved, open it
-      await OpenFile(file.saved_path);
-    } else {
-      // Show save dialog
-      const savePath: string = await ShowSaveDialog(file.compressed_filename);
-      if (savePath) {
-        // In a real implementation, we'd copy the file from temp to save location
-        console.log("Would save file to:", savePath);
-      }
+    // Note: saved_path property is not available in the generated model
+    // Show save dialog
+    const savePath: string = await ShowSaveDialog(file.compressed_filename);
+    if (savePath) {
+      // In a real implementation, we'd copy the file from temp to save location
+      console.log("Would save file to:", savePath);
     }
   } catch (error) {
     console.error("Error handling file download:", error);

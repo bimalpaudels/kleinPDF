@@ -128,3 +128,7 @@ ghostscript
 # Claude files
 CLAUDE.md
 refactor.md
+plan.md
+
+# Binary files
+kleinpdf
