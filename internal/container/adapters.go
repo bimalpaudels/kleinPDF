@@ -326,13 +326,12 @@ func (s *StatisticsServiceImpl) GetStats() *statisticsDomain.AppStats {
 	return &s.stats
 }
 
-func (s *StatisticsServiceImpl) GetAppStatus(workingDir string) map[string]interface{} {
+func (s *StatisticsServiceImpl) GetAppStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"status":                "running",
 		"framework":             "Wails + Preact",
 		"app_name":              "KleinPDF",
 		"ghostscript_path":      s.processor.GetGhostscriptPath(),
 		"ghostscript_available": s.processor.IsGhostscriptAvailable(),
-		"working_directory":     workingDir,
 	}
 }

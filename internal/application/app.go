@@ -55,7 +55,6 @@ func (a *App) OnStartup(ctx context.Context) {
 
 	cfg.Logger.Info("Wails app initialized successfully")
 	cfg.Logger.Info("Application configuration",
-		"working_directory", cfg.WorkingDir,
 		"database_path", cfg.DatabasePath,
 		"ghostscript_available", true) // We'll get this from container later
 }

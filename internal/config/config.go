@@ -11,7 +11,6 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	WorkingDir      string
 	DatabasePath    string
 	GhostscriptPath string
 	AppDataDir      string
@@ -31,13 +30,6 @@ func New() *Config {
 }
 
 func (c *Config) setupDirectories() {
-	// Set up working directory (temp files)
-	tempDir := os.TempDir()
-	c.WorkingDir = filepath.Join(tempDir, "KleinPDF", "workspace")
-
-	// Ensure working directory exists
-	os.MkdirAll(c.WorkingDir, 0755)
-
 	// Set up app data directory (database, settings)
 	c.AppDataDir = getAppDataDir()
 	os.MkdirAll(c.AppDataDir, 0755)

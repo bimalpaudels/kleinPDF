@@ -10,5 +10,5 @@ type AppStats struct {
 type Service interface {
 	UpdateStats(filesCompressed int, dataSaved int64)
 	GetStats() *AppStats
-	GetAppStatus(workingDir string) map[string]interface{}
+	GetAppStatus() map[string]interface{}
 }

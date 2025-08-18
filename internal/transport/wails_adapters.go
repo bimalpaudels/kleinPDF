@@ -173,7 +173,7 @@ func (a *WailsApp) OpenFile(filePath string) error {
 }
 
 func (a *WailsApp) GetAppStatus() map[string]interface{} {
-	return a.statisticsService.GetAppStatus("")
+	return a.statisticsService.GetAppStatus()
 }
 
 func (a *WailsApp) GetStats() *AppStats {
