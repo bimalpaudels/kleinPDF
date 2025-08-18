@@ -65,8 +65,7 @@ func (a *WailsApp) CompressPDF(request CompressionRequest) CompressionResponse {
 			OriginalSize:       file.OriginalSize,
 			CompressedSize:     file.CompressedSize,
 			CompressionRatio:   file.CompressionRatio,
-			TempPath:           file.TempPath,
-			SavedPath:          file.SavedPath,
+			CompressedPath:     file.CompressedPath,
 			Status:             file.Status,
 			Error:              file.Error,
 		}
@@ -108,8 +107,7 @@ func (a *WailsApp) ProcessFileData(fileData []FileUpload) CompressionResponse {
 			OriginalSize:       file.OriginalSize,
 			CompressedSize:     file.CompressedSize,
 			CompressionRatio:   file.CompressionRatio,
-			TempPath:           file.TempPath,
-			SavedPath:          file.SavedPath,
+			CompressedPath:     file.CompressedPath,
 			Status:             file.Status,
 			Error:              file.Error,
 		}

@@ -285,7 +285,7 @@ func (s *CompressionServiceImpl) processSingleFile(ctx context.Context, fileID, 
 		OriginalSize:       originalSize,
 		CompressedSize:     compressedSize,
 		CompressionRatio:   compressionRatio,
-		TempPath:           compressedPath,
+		CompressedPath:     compressedPath,
 	}, nil
 }
 

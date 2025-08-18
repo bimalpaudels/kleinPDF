@@ -28,8 +28,7 @@ type FileResult struct {
 	OriginalSize       int64   `json:"original_size"`
 	CompressedSize     int64   `json:"compressed_size"`
 	CompressionRatio   float64 `json:"compression_ratio"`
-	TempPath           string  `json:"temp_path"`
-	SavedPath          *string `json:"saved_path,omitempty"`
+	CompressedPath     string  `json:"compressed_path"`
 	Status             string  `json:"status"`
 	Error              string  `json:"error,omitempty"`
 }
