@@ -63,11 +63,3 @@ type FileUpload struct {
 	Size int64  `json:"size"`
 }
 
-type FileProgressUpdate struct {
-	FileID   string  `json:"file_id"`
-	Filename string  `json:"filename"`
-	Status   string  `json:"status"`
-	Progress float64 `json:"progress"`
-	WorkerID int     `json:"worker_id"`
-	Error    string  `json:"error,omitempty"`
-}

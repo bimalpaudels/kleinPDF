@@ -16,8 +16,6 @@ import (
 	preferencesDomain "kleinpdf/internal/domain/preferences"
 	statisticsDomain "kleinpdf/internal/domain/statistics"
 	"kleinpdf/internal/services"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // PDFProcessorAdapter adapts services.PDFService to compressionDomain.PDFProcessor
@@ -139,14 +137,6 @@ func (s *CompressionServiceImpl) CompressPDF(ctx context.Context, request compre
 	// Fill the work channel
 	for _, work := range fileWorkItems {
 		workChan <- work
-
-		// Emit initial file status
-		wailsruntime.EventsEmit(s.ctx, common.EventFileProgress, compressionDomain.FileProgressUpdate{
-			FileID:   work.ID,
-			Filename: filepath.Base(work.FilePath),
-			Status:   "queued",
-			Progress: 0,
-		})
 	}
 	close(workChan)
 
@@ -173,16 +163,6 @@ func (s *CompressionServiceImpl) CompressPDF(ctx context.Context, request compre
 						"worker_id", workerID,
 						"error", compressionErr)
 
-					// Emit error status for this file
-					wailsruntime.EventsEmit(s.ctx, common.EventFileProgress, compressionDomain.FileProgressUpdate{
-						FileID:   work.ID,
-						Filename: filepath.Base(work.FilePath),
-						Status:   "error",
-						Progress: 0,
-						WorkerID: workerID,
-						Error:    compressionErr.Error(),
-					})
-
 					// Send error result
 					errorResult := &compressionDomain.FileResult{
 						FileID:           work.ID,
@@ -192,20 +172,8 @@ func (s *CompressionServiceImpl) CompressPDF(ctx context.Context, request compre
 					}
 					resultChan <- errorResult
 				} else {
-					// Emit completion status
-					wailsruntime.EventsEmit(s.ctx, common.EventFileProgress, compressionDomain.FileProgressUpdate{
-						FileID:   work.ID,
-						Filename: filepath.Base(work.FilePath),
-						Status:   "completed",
-						Progress: common.CompletedProgressPercent,
-						WorkerID: workerID,
-					})
-
 					result.Status = "completed"
 					resultChan <- result
-
-					// Stream individual file result immediately
-					wailsruntime.EventsEmit(s.ctx, common.EventFileCompleted, result)
 				}
 			}
 		}(i)
@@ -228,25 +196,8 @@ func (s *CompressionServiceImpl) CompressPDF(ctx context.Context, request compre
 			totalOriginalSize += result.OriginalSize
 			totalCompressedSize += result.CompressedSize
 		}
-
 		completed++
-		// Emit overall progress
-		overallProgress := float64(completed) / float64(totalFiles) * 100
-		wailsruntime.EventsEmit(s.ctx, common.EventCompressionProgress, map[string]any{
-			"percent":   overallProgress,
-			"current":   completed,
-			"total":     totalFiles,
-			"completed": completed,
-		})
 	}
-
-	// Final progress update
-	wailsruntime.EventsEmit(s.ctx, common.EventCompressionProgress, map[string]any{
-		"percent": 100.0,
-		"current": totalFiles,
-		"total":   totalFiles,
-		"file":    "Complete",
-	})
 
 	// Calculate overall compression ratio
 	overallCompressionRatio := float64(totalOriginalSize-totalCompressedSize) / float64(totalOriginalSize) * 100
@@ -297,15 +248,6 @@ func (s *CompressionServiceImpl) ProcessFileData(ctx context.Context, fileData [
 
 func (s *CompressionServiceImpl) processSingleFile(ctx context.Context, fileID, filePath, compressionLevel string, advancedOptions *compressionDomain.CompressionOptions, workerID int) (*compressionDomain.FileResult, error) {
 	filename := filepath.Base(filePath)
-
-	// Emit compression status
-	wailsruntime.EventsEmit(s.ctx, common.EventFileProgress, compressionDomain.FileProgressUpdate{
-		FileID:   fileID,
-		Filename: filename,
-		Status:   "compressing",
-		Progress: common.DefaultProgressPercent,
-		WorkerID: workerID,
-	})
 
 	// Create timestamp-based filename for compressed file
 	timestamp := time.Now().UTC().Format("20060102_150405")
@@ -386,9 +328,6 @@ func (s *StatisticsServiceImpl) UpdateStats(filesCompressed int, dataSaved int64
 	s.stats.SessionDataSaved += dataSaved
 	s.stats.TotalFilesCompressed += int64(filesCompressed)
 	s.stats.TotalDataSaved += dataSaved
-
-	// Emit stats update
-	wailsruntime.EventsEmit(s.ctx, common.EventStatsUpdate, s.stats)
 }
 
 func (s *StatisticsServiceImpl) GetStats() *statisticsDomain.AppStats {
