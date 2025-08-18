@@ -39,8 +39,8 @@ func (c *Config) setupDirectories() {
 }
 
 func (c *Config) setupGhostscriptPath() {
-	// Use embedded binary directly
-	extractDir := filepath.Join(os.TempDir(), "KleinPDF", "bin")
+	// Use embedded binary directly in app data directory for persistence
+	extractDir := filepath.Join(c.AppDataDir, "bin")
 	gsPath := filepath.Join(extractDir, "ghostscript")
 
 	// Check if already extracted and valid
