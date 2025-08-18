@@ -1,66 +1,87 @@
-# Make Small PDF - Wails + Preact Desktop App
+# KleinPDF - A tiny PDF Compression Desktop App
 
 A high-performance PDF compression desktop application built with Wails (Go + Web) and Preact frontend. macOS-only (Intel + Apple Silicon) with Ghostscript bundled inside the app.
 
 ## Screenshot
 
-![Screenshot of PDF compressor app](./app-screenshot.jpg?raw=true "Make Small PDF")
+![Screenshot of PDF compressor app](./app-screenshot.jpg?raw=true "KleinPDF")
 
 ## 🚀 Features
 
-- **📄 PDF Compression**: Advanced compression using Ghostscript (embedded)
-- **🖥️ Desktop App**: Native desktop experience with Wails
-- **📁 Multiple Files**: Compress multiple PDF files at once
-- **⚡ Fast Processing**: Efficient batch processing with Go backend
-- **🎯 Auto-Download**: Automatic file saving to preferred folder
-- **⚙️ Preferences**: Configurable settings and download folder
-- **🧹 Auto-Cleanup**: Automatic temporary file cleanup
+- **📄 Advanced PDF Compression**: Compression using embedded Ghostscript
+- **🖥️ Native Desktop Experience**: Built with Wails for seamless desktop integration
+- **📁 Batch Processing**: Compress multiple PDF files simultaneously with concurrent processing
+- **⚙️ Configurable Settings**: Multiple compression levels and advanced options
+- **📊 Statistics Tracking**: Session and lifetime statistics for files compressed and data saved
 
 ## 📁 Project Structure
 
 ```
-pdf-compressor/
-├── main.go                 # Wails application entry point
-├── app.go                  # Main app struct with methods
-├── generate.go             # Go generate script for downloading binaries
-├── wails.json              # Wails configuration
-├── go.mod                  # Go module dependencies
-├── internal/               # Go application code
-│   ├── binary/            # Embedded Ghostscript binary
-│   ├── config/            # Configuration management
-│   ├── database/          # Database initialization
-│   ├── models/            # Database models
-│   └── services/          # Business logic services
-├── frontend/              # Preact frontend
-│   ├── src/               # Source files
-│   │   ├── main.jsx       # Frontend entry point
-│   │   ├── app.jsx        # Main Preact component
-│   │   └── app.css        # Styling
-│   ├── dist/              # Built frontend assets
-│   └── wailsjs/           # Auto-generated bindings
-└── build/                 # Built executables
+compressor/
+├── main.go                     # Wails application entry point
+├── wails.json                  # Wails configuration
+├── go.mod                      # Go module dependencies
+├── go.sum                      # Go module checksums
+├── internal/                   # Go application code
+│   ├── application/           # Core application logic
+│   │   ├── app.go            # Main app struct with Wails bindings
+│   │   ├── compression.go    # PDF compression handler with concurrent processing
+│   │   ├── files.go          # File operations and download management
+│   │   ├── preferences.go    # User preferences handler
+│   │   ├── dialogs.go        # Native file/directory dialogs
+│   │   ├── stats.go          # Statistics tracking and management
+│   │   ├── types.go          # Application data structures
+│   │   └── utils.go          # Utility functions
+│   ├── binary/               # Embedded Ghostscript binary management
+│   │   ├── generate.go       # Go generate script for downloading binaries
+│   │   └── script.go         # Binary download and embedding logic
+│   ├── config/               # Configuration management
+│   │   └── config.go         # Application configuration
+│   ├── database/             # Database initialization
+│   │   └── database.go       # SQLite database setup
+│   ├── models/               # Database models
+│   │   └── preferences.go    # User preferences data model
+│   └── services/             # Business logic services
+│       ├── pdf.go            # PDF compression service using Ghostscript
+│       └── preferences.go    # Preferences service
+├── frontend/                 # Preact frontend
+│   ├── src/                  # Source files
+│   │   ├── main.tsx          # Frontend entry point
+│   │   ├── app.tsx           # Main Preact component with UI
+│   │   ├── styles.css        # Tailwind CSS styling
+│   │   └── types/            # TypeScript type definitions
+│   │       └── app.ts        # Frontend type definitions
+│   ├── index.html            # HTML template
+│   ├── package.json          # Frontend dependencies
+│   ├── tsconfig.json         # TypeScript configuration
+│   ├── vite.config.ts        # Vite build configuration
+│   └── wailsjs/              # Auto-generated Wails bindings
+└── build/                    # Built executables (generated)
 ```
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Go 1.23+ with Wails v2
-- **Frontend**: Preact + Vite for fast, lightweight UI
+- **Backend**: Go 1.25 with Wails v2 framework
+- **Frontend**: Preact + TypeScript + Vite for fast, lightweight UI
 - **Desktop Runtime**: Wails (native Go binaries)
-- **PDF Compression**: Ghostscript (embedded binary)
-- **Database**: SQLite with GORM
+- **PDF Compression**: Ghostscript 10.05.1 (embedded binary)
+- **Database**: SQLite with GORM for data persistence
+- **Styling**: Tailwind CSS with custom PDF-themed design
 - **Build Tools**: Wails CLI, Vite, Go modules
+- **Package Manager**: pnpm for frontend dependencies
 
-## ⚡ Performance Benefits
+## ⚡ Performance Features
 
+- **Concurrent Processing**: Multi-threaded compression (up to 8 cores)
+- **Direct File Processing**: No temporary file copying - Ghostscript reads original and writes compressed directly
 - **Bundle Size**: Small native binary with embedded resources
-- **Memory Usage**: Low RAM consumption
-- **Startup Time**: Native binary execution
+- **Startup Time**: Native binary execution with minimal overhead
 
 ## 🚀 Quick Start
 
 ### Prerequisites (macOS)
 
-- Go 1.23 or later
+- Go 1.25 or later
 - Node.js 19+
 - pnpm (recommended) or npm
 - Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
@@ -71,7 +92,7 @@ pdf-compressor/
 
    ```bash
    git clone <repository-url>
-   cd pdf-compressor
+   cd compressor
    ```
 
 2. **Install dependencies**:
@@ -122,39 +143,12 @@ go generate ./internal/binary
 ```
 
 Supported architectures:
+
 - **Apple Silicon** (arm64): `ghostscript-10.05.1-macos-arm64`
 - **Intel Macs** (amd64): `ghostscript-10.05.1-macos-x86_64`
 
 The binary is embedded directly into the application using Go's `embed` package, eliminating the need for complex archive extraction.
 
-System-installed Ghostscript is not used.
 
-## 📦 Package Management
 
-This project uses **pnpm** for frontend dependency management:
 
-- **Faster**: Parallel installation and efficient disk usage
-- **Reliable**: Deterministic dependency resolution
-- **Efficient**: Shared dependencies across projects
-
-### Frontend Development
-
-```bash
-cd frontend
-pnpm install          # Install dependencies
-pnpm dev             # Start development server
-pnpm build           # Build for production
-```
-
-## 🔧 Configuration
-
-Edit `wails.json` to customize basic app metadata and frontend build commands.
-
-## 🤝 Contributing
-
-- macOS-only support at this time (Intel + Apple Silicon)
-- PRs that simplify macOS support are welcome
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
