@@ -37,8 +37,6 @@ func (a *WailsApp) CompressPDF(request CompressionRequest) CompressionResponse {
 	domainRequest := compressionDomain.CompressionRequest{
 		Files:            request.Files,
 		CompressionLevel: request.CompressionLevel,
-		AutoDownload:     request.AutoDownload,
-		DownloadFolder:   request.DownloadFolder,
 	}
 
 	// Convert advanced options if present
@@ -82,8 +80,6 @@ func (a *WailsApp) CompressPDF(request CompressionRequest) CompressionResponse {
 		TotalCompressedSize:     domainResponse.TotalCompressedSize,
 		OverallCompressionRatio: domainResponse.OverallCompressionRatio,
 		CompressionLevel:        domainResponse.CompressionLevel,
-		AutoDownload:            domainResponse.AutoDownload,
-		DownloadPaths:           domainResponse.DownloadPaths,
 		Error:                   domainResponse.Error,
 	}
 }
@@ -127,8 +123,6 @@ func (a *WailsApp) ProcessFileData(fileData []FileUpload) CompressionResponse {
 		TotalCompressedSize:     domainResponse.TotalCompressedSize,
 		OverallCompressionRatio: domainResponse.OverallCompressionRatio,
 		CompressionLevel:        domainResponse.CompressionLevel,
-		AutoDownload:            domainResponse.AutoDownload,
-		DownloadPaths:           domainResponse.DownloadPaths,
 		Error:                   domainResponse.Error,
 	}
 }
@@ -141,9 +135,7 @@ func (a *WailsApp) GetPreferences() (*models.UserPreferencesData, error) {
 
 	// Convert domain model to transport model
 	return &models.UserPreferencesData{
-		DefaultDownloadFolder:   domainPrefs.DefaultDownloadFolder,
 		DefaultCompressionLevel: domainPrefs.DefaultCompressionLevel,
-		AutoDownloadEnabled:     domainPrefs.AutoDownloadEnabled,
 		ImageDPI:                domainPrefs.ImageDPI,
 		ImageQuality:            domainPrefs.ImageQuality,
 		RemoveMetadata:          domainPrefs.RemoveMetadata,

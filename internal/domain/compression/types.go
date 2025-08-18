@@ -26,8 +26,6 @@ func DefaultCompressionOptions() CompressionOptions {
 type CompressionRequest struct {
 	Files            []string            `json:"files"`
 	CompressionLevel string              `json:"compressionLevel"`
-	AutoDownload     bool                `json:"autoDownload"`
-	DownloadFolder   string              `json:"downloadFolder"`
 	AdvancedOptions  *CompressionOptions `json:"advancedOptions"`
 }
 
@@ -39,8 +37,6 @@ type CompressionResponse struct {
 	TotalCompressedSize     int64        `json:"total_compressed_size"`
 	OverallCompressionRatio float64      `json:"overall_compression_ratio"`
 	CompressionLevel        string       `json:"compression_level"`
-	AutoDownload            bool         `json:"auto_download"`
-	DownloadPaths           []string     `json:"download_paths,omitempty"`
 	Error                   string       `json:"error,omitempty"`
 }
 

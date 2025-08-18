@@ -76,7 +76,6 @@ func TestUpdatePreferences(t *testing.T) {
 	updateData := map[string]interface{}{
 		"default_compression_level": "ultra",
 		"image_dpi":                 float64(300),
-		"auto_download_enabled":     true,
 	}
 
 	err = service.UpdatePreferences(updateData)
@@ -97,60 +96,5 @@ func TestUpdatePreferences(t *testing.T) {
 	if prefs.ImageDPI != 300 {
 		t.Errorf("Expected ImageDPI to be updated to 300, got %d", prefs.ImageDPI)
 	}
-
-	if !prefs.AutoDownloadEnabled {
-		t.Error("Expected AutoDownloadEnabled to be true")
-	}
 }
 
-func TestUpdatePreferences_InvalidFolder(t *testing.T) {
-	db := setupTestDB(t)
-	service := NewPreferencesService(db)
-
-	// Initialize preferences
-	_, err := service.GetPreferences()
-	if err != nil {
-		t.Fatalf("Failed to initialize preferences: %v", err)
-	}
-
-	// Try to update with invalid folder path
-	updateData := map[string]interface{}{
-		"default_download_folder": "/invalid/path/that/cannot/be/created\x00", // Invalid path with null byte
-	}
-
-	err = service.UpdatePreferences(updateData)
-	// This should not fail the entire operation, just skip the invalid folder
-	if err != nil {
-		t.Fatalf("Expected no error even with invalid folder, got %v", err)
-	}
-
-	// Verify the folder was not updated
-	prefs, err := service.GetPreferences()
-	if err != nil {
-		t.Fatalf("Failed to get preferences: %v", err)
-	}
-
-	// Should still be empty since the invalid path couldn't be created
-	if prefs.DefaultDownloadFolder != "" {
-		t.Errorf("Expected folder to remain empty due to invalid path, got %s", prefs.DefaultDownloadFolder)
-	}
-}
-
-func TestGetDownloadFolder_Default(t *testing.T) {
-	db := setupTestDB(t)
-	service := NewPreferencesService(db)
-
-	folder, err := service.GetDownloadFolder()
-	if err != nil {
-		t.Fatalf("Expected no error getting download folder, got %v", err)
-	}
-
-	if folder == "" {
-		t.Error("Expected non-empty download folder path")
-	}
-
-	// Should contain "Downloads" for default behavior
-	if !contains(folder, "Downloads") {
-		t.Errorf("Expected default folder to contain 'Downloads', got %s", folder)
-	}
-}

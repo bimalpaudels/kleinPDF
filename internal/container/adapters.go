@@ -61,9 +61,7 @@ func (a *PreferencesRepositoryAdapter) GetPreferences() (*preferencesDomain.User
 
 	// Convert service model to domain model
 	return &preferencesDomain.UserPreferencesData{
-		DefaultDownloadFolder:   prefs.DefaultDownloadFolder,
 		DefaultCompressionLevel: prefs.DefaultCompressionLevel,
-		AutoDownloadEnabled:     prefs.AutoDownloadEnabled,
 		ImageDPI:                prefs.ImageDPI,
 		ImageQuality:            prefs.ImageQuality,
 		RemoveMetadata:          prefs.RemoveMetadata,
@@ -79,9 +77,6 @@ func (a *PreferencesRepositoryAdapter) UpdatePreferences(data map[string]any) er
 	return a.service.UpdatePreferences(data)
 }
 
-func (a *PreferencesRepositoryAdapter) GetDownloadFolder() (string, error) {
-	return a.service.GetDownloadFolder()
-}
 
 type CompressionServiceImpl struct {
 	processor compressionDomain.PDFProcessor
@@ -210,7 +205,6 @@ func (s *CompressionServiceImpl) CompressPDF(ctx context.Context, request compre
 		TotalCompressedSize:     totalCompressedSize,
 		OverallCompressionRatio: overallCompressionRatio,
 		CompressionLevel:        compressionLevel,
-		AutoDownload:            request.AutoDownload,
 	}
 }
 
@@ -232,8 +226,6 @@ func (s *CompressionServiceImpl) ProcessFileData(ctx context.Context, fileData [
 	request := compressionDomain.CompressionRequest{
 		Files:            filePaths,
 		CompressionLevel: common.DefaultCompressionLevel,
-		AutoDownload:     false,
-		DownloadFolder:   "",
 		AdvancedOptions:  nil,
 	}
 

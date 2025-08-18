@@ -15,9 +15,7 @@ type UserPreferences struct {
 }
 
 type UserPreferencesData struct {
-	DefaultDownloadFolder   string `json:"default_download_folder"`
 	DefaultCompressionLevel string `json:"default_compression_level"`
-	AutoDownloadEnabled     bool   `json:"auto_download_enabled"`
 	ImageDPI                int    `json:"image_dpi"`
 	ImageQuality            int    `json:"image_quality"`
 	RemoveMetadata          bool   `json:"remove_metadata"`
@@ -30,9 +28,7 @@ type UserPreferencesData struct {
 
 func DefaultPreferences() UserPreferencesData {
 	return UserPreferencesData{
-		DefaultDownloadFolder:   "",
 		DefaultCompressionLevel: "good_enough", // Keep string literal here as it's part of the model
-		AutoDownloadEnabled:     false,
 		ImageDPI:                150,
 		ImageQuality:            85,
 		RemoveMetadata:          false,

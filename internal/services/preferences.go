@@ -1,9 +1,6 @@
 package services
 
 import (
-	"os"
-	"path/filepath"
-
 	"kleinpdf/internal/models"
 
 	"gorm.io/gorm"
@@ -40,27 +37,9 @@ func (s *PreferencesService) UpdatePreferences(data map[string]interface{}) erro
 	currentPrefs := prefs.GetPreferences()
 	
 	// Update fields from request data
-	if val, ok := data["default_download_folder"]; ok {
-		if folder, ok := val.(string); ok && folder != "" {
-			// Validate and create the path if needed
-			folderPath := filepath.Clean(folder)
-			if err := os.MkdirAll(folderPath, 0755); err == nil {
-				currentPrefs.DefaultDownloadFolder = folderPath
-			}
-		} else {
-			currentPrefs.DefaultDownloadFolder = ""
-		}
-	}
-	
 	if val, ok := data["default_compression_level"]; ok {
 		if level, ok := val.(string); ok {
 			currentPrefs.DefaultCompressionLevel = level
-		}
-	}
-	
-	if val, ok := data["auto_download_enabled"]; ok {
-		if enabled, ok := val.(bool); ok {
-			currentPrefs.AutoDownloadEnabled = enabled
 		}
 	}
 	
@@ -120,29 +99,3 @@ func (s *PreferencesService) UpdatePreferences(data map[string]interface{}) erro
 	return s.db.Save(prefs).Error
 }
 
-// GetDownloadFolder gets the default download folder, creating it if needed
-func (s *PreferencesService) GetDownloadFolder() (string, error) {
-	prefs, err := models.GetOrCreatePreferences(s.db)
-	if err != nil {
-		return "", err
-	}
-	
-	prefsData := prefs.GetPreferences()
-	
-	var downloadDir string
-	if prefsData.DefaultDownloadFolder != "" {
-		downloadDir = prefsData.DefaultDownloadFolder
-	} else {
-		// Use default Downloads folder
-		homeDir, _ := os.UserHomeDir()
-		downloadDir = filepath.Join(homeDir, "Downloads")
-	}
-	
-	// Ensure the directory exists
-	err = os.MkdirAll(downloadDir, 0755)
-	if err != nil {
-		return "", err
-	}
-	
-	return downloadDir, nil
-}
