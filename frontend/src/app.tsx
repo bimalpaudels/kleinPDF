@@ -13,15 +13,14 @@ import {
   ShowSaveDialog,
   OpenFile,
   GetStats,
-} from "../wailsjs/go/main/App";
+} from "../wailsjs/go/application/App";
 import { EventsOn } from "../wailsjs/runtime/runtime";
 
 // Type imports
-import { main, models, services } from "../wailsjs/go/models";
+import { application, models, services } from "../wailsjs/go/models";
 import {
   ProgressData,
   AdvancedOptions,
-  FileUploadData,
   CompressionLevel,
   CompressionOption,
   CompressionProgressEvent,
@@ -29,7 +28,7 @@ import {
 } from "./types/app";
 
 // Global state
-const files = signal<main.FileResult[]>([]);
+const files = signal<application.FileResult[]>([]);
 const processing = signal<boolean>(false);
 const progress = signal<ProgressData>({
   percent: 0,
@@ -40,7 +39,7 @@ const progress = signal<ProgressData>({
 const selectedCompressionLevel = signal<CompressionLevel>("good_enough");
 const autoDownload = signal<boolean>(true);
 const downloadFolder = signal<string>("");
-const stats = signal<main.AppStats>({
+const stats = signal<application.AppStats>({
   session_files_compressed: 0,
   session_data_saved: 0,
   total_files_compressed: 0,
@@ -116,7 +115,7 @@ function App() {
 
   const loadStats = async (): Promise<void> => {
     try {
-      const currentStats: main.AppStats = await GetStats();
+      const currentStats: application.AppStats = await GetStats();
       if (currentStats) {
         stats.value = currentStats;
       }
@@ -208,7 +207,7 @@ function App() {
       const fileDataArray = await Promise.all(fileDataPromises);
 
       // Process files through Wails backend using file data
-      const results: main.CompressionResponse = await ProcessFileData(
+      const results: application.CompressionResponse = await ProcessFileData(
         fileDataArray
       );
 
@@ -229,7 +228,7 @@ function App() {
     }
   };
 
-  const readFileData = (file: File): Promise<FileUploadData> => {
+  const readFileData = (file: File): Promise<application.FileUpload> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -243,11 +242,13 @@ function App() {
         const uint8Array = new Uint8Array(arrayBuffer);
         const dataArray = Array.from(uint8Array); // Convert to regular array for JSON serialization
 
-        resolve({
-          name: file.name,
-          data: dataArray,
-          size: file.size,
-        });
+        resolve(
+          new application.FileUpload({
+            name: file.name,
+            data: dataArray,
+            size: file.size,
+          })
+        );
       };
 
       reader.onerror = () => {
@@ -282,7 +283,7 @@ function App() {
         convert_to_grayscale: advancedOptions.value.convertToGrayscale,
       });
 
-      const compressionRequest = new main.CompressionRequest({
+      const compressionRequest = new application.CompressionRequest({
         files: filePaths,
         compressionLevel: selectedCompressionLevel.value,
         autoDownload: autoDownload.value,
@@ -290,7 +291,7 @@ function App() {
         advancedOptions: compressionOptions,
       });
 
-      const results: main.CompressionResponse = await CompressPDF(
+      const results: application.CompressionResponse = await CompressPDF(
         compressionRequest
       );
 
@@ -646,7 +647,7 @@ function App() {
   );
 }
 
-const downloadFile = async (file: main.FileResult): Promise<void> => {
+const downloadFile = async (file: application.FileResult): Promise<void> => {
   try {
     if (file.saved_path) {
       // File is already saved, open it

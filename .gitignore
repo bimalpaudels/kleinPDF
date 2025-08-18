@@ -124,3 +124,7 @@ AppData/Local/KleinPDF/
 
 # Ghostscript binary
 ghostscript
+
+# Claude files
+CLAUDE.md
+refactor.md

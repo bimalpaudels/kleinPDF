@@ -3,6 +3,8 @@ package main
 import (
 	"embed"
 
+	"kleinpdf/internal/application"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -11,21 +13,21 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-
 func main() {
 	// Create an instance of the app structure
-	app := NewApp()
+	app := application.NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:  "KleinPDF",
-		Width:  1200,
-		Height: 800,
+		Width:  800,
+		Height: 600,
+
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 245, G: 245, B: 247, A: 1},
-		OnStartup:        app.OnStartup,
+
+		OnStartup: app.OnStartup,
 		Bind: []interface{}{
 			app,
 		},

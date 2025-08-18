@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"pdf-compressor-wails/internal/config"
+	"kleinpdf/internal/config"
 )
 
 // PDFService handles PDF compression operations
@@ -46,7 +46,7 @@ func DefaultCompressionOptions() CompressionOptions {
 // CompressPDF compresses a PDF file using Ghostscript
 func (s *PDFService) CompressPDF(inputPath, outputPath, compressionLevel string, options *CompressionOptions) error {
 	if s.config.GhostscriptPath == "" {
-		return fmt.Errorf("Ghostscript not found. Please install Ghostscript to use this application")
+		return fmt.Errorf("ghostscript not found. Please install ghostscript to use this application")
 	}
 
 	if options == nil {

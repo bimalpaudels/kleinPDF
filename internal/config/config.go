@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"pdf-compressor-wails/internal/binary"
+	"kleinpdf/internal/binary"
 )
 
 // Config holds application configuration
