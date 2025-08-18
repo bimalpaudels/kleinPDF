@@ -4,25 +4,17 @@ import (
 	"context"
 
 	"kleinpdf/internal/config"
+	"kleinpdf/internal/container"
 	"kleinpdf/internal/database"
 	model "kleinpdf/internal/models"
-	"kleinpdf/internal/services"
+	"kleinpdf/internal/transport"
 )
 
 type App struct {
-	ctx context.Context
-
-	// Handlers
-	compressionHandler *CompressionHandler
-	preferencesHandler *PreferencesHandler
-	dialogsHandler     *DialogsHandler
-	filesHandler       *FilesHandler
-	statsManager       *StatsManager
-
-	// Core services
-	pdfService   *services.PDFService
-	prefsService *services.PreferencesService
-	config       *config.Config
+	ctx       context.Context
+	container *container.Container
+	wailsApp  *transport.WailsApp
+	config    *config.Config
 }
 
 func NewApp() *App {
@@ -50,58 +42,145 @@ func (a *App) OnStartup(ctx context.Context) {
 		return
 	}
 
-	a.pdfService = services.NewPDFService(cfg)
-	a.prefsService = services.NewPreferencesService(db)
-
-	a.statsManager = NewStatsManager(ctx, a.pdfService)
-	a.filesHandler = NewFilesHandler(ctx, cfg, a.prefsService)
-	a.compressionHandler = NewCompressionHandler(ctx, cfg, a.pdfService, a.prefsService, a.filesHandler, a.statsManager)
-	a.preferencesHandler = NewPreferencesHandler(a.prefsService)
-	a.dialogsHandler = NewDialogsHandler(ctx)
+	// Initialize dependency container
+	a.container = container.New(ctx, cfg, db)
+	
+	// Initialize transport layer
+	a.wailsApp = transport.NewWailsApp(
+		ctx,
+		a.container.GetCompressionService(),
+		a.container.GetPreferencesRepository(),
+		a.container.GetStatisticsService(),
+	)
 
 	cfg.Logger.Info("Wails app initialized successfully")
 	cfg.Logger.Info("Application configuration", 
 		"working_directory", cfg.WorkingDir,
 		"database_path", cfg.DatabasePath,
-		"ghostscript_available", a.pdfService.IsGhostscriptAvailable())
+		"ghostscript_available", true) // We'll get this from container later
 }
 
 func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {
-	return a.compressionHandler.CompressPDF(request)
+	// Convert application types to transport types
+	transportRequest := transport.CompressionRequest{
+		Files:            request.Files,
+		CompressionLevel: request.CompressionLevel,
+		AutoDownload:     request.AutoDownload,
+		DownloadFolder:   request.DownloadFolder,
+		AdvancedOptions:  request.AdvancedOptions,
+	}
+	
+	transportResponse := a.wailsApp.CompressPDF(transportRequest)
+	
+	// Convert transport response back to application response
+	appFiles := make([]FileResult, len(transportResponse.Files))
+	for i, file := range transportResponse.Files {
+		appFiles[i] = FileResult{
+			FileID:             file.FileID,
+			OriginalFilename:   file.OriginalFilename,
+			CompressedFilename: file.CompressedFilename,
+			OriginalSize:       file.OriginalSize,
+			CompressedSize:     file.CompressedSize,
+			CompressionRatio:   file.CompressionRatio,
+			TempPath:           file.TempPath,
+			SavedPath:          file.SavedPath,
+			Status:             file.Status,
+			Error:              file.Error,
+		}
+	}
+	
+	return CompressionResponse{
+		Success:                 transportResponse.Success,
+		Files:                   appFiles,
+		TotalFiles:              transportResponse.TotalFiles,
+		TotalOriginalSize:       transportResponse.TotalOriginalSize,
+		TotalCompressedSize:     transportResponse.TotalCompressedSize,
+		OverallCompressionRatio: transportResponse.OverallCompressionRatio,
+		CompressionLevel:        transportResponse.CompressionLevel,
+		AutoDownload:            transportResponse.AutoDownload,
+		DownloadPaths:           transportResponse.DownloadPaths,
+		Error:                   transportResponse.Error,
+	}
 }
 
 func (a *App) ProcessFileData(fileData []FileUpload) CompressionResponse {
-	return a.compressionHandler.ProcessFileData(fileData)
+	// Convert application types to transport types
+	transportFileData := make([]transport.FileUpload, len(fileData))
+	for i, file := range fileData {
+		transportFileData[i] = transport.FileUpload{
+			Name: file.Name,
+			Data: file.Data,
+			Size: file.Size,
+		}
+	}
+	
+	transportResponse := a.wailsApp.ProcessFileData(transportFileData)
+	
+	// Convert transport response back to application response (same as above)
+	appFiles := make([]FileResult, len(transportResponse.Files))
+	for i, file := range transportResponse.Files {
+		appFiles[i] = FileResult{
+			FileID:             file.FileID,
+			OriginalFilename:   file.OriginalFilename,
+			CompressedFilename: file.CompressedFilename,
+			OriginalSize:       file.OriginalSize,
+			CompressedSize:     file.CompressedSize,
+			CompressionRatio:   file.CompressionRatio,
+			TempPath:           file.TempPath,
+			SavedPath:          file.SavedPath,
+			Status:             file.Status,
+			Error:              file.Error,
+		}
+	}
+	
+	return CompressionResponse{
+		Success:                 transportResponse.Success,
+		Files:                   appFiles,
+		TotalFiles:              transportResponse.TotalFiles,
+		TotalOriginalSize:       transportResponse.TotalOriginalSize,
+		TotalCompressedSize:     transportResponse.TotalCompressedSize,
+		OverallCompressionRatio: transportResponse.OverallCompressionRatio,
+		CompressionLevel:        transportResponse.CompressionLevel,
+		AutoDownload:            transportResponse.AutoDownload,
+		DownloadPaths:           transportResponse.DownloadPaths,
+		Error:                   transportResponse.Error,
+	}
 }
 
 func (a *App) GetPreferences() (*model.UserPreferencesData, error) {
-	return a.preferencesHandler.GetPreferences()
+	return a.wailsApp.GetPreferences()
 }
 
 func (a *App) UpdatePreferences(data map[string]interface{}) error {
-	return a.preferencesHandler.UpdatePreferences(data)
+	return a.wailsApp.UpdatePreferences(data)
 }
 
 func (a *App) OpenFileDialog() ([]string, error) {
-	return a.dialogsHandler.OpenFileDialog()
+	return a.wailsApp.OpenFileDialog()
 }
 
 func (a *App) OpenDirectoryDialog() (string, error) {
-	return a.dialogsHandler.OpenDirectoryDialog()
+	return a.wailsApp.OpenDirectoryDialog()
 }
 
 func (a *App) ShowSaveDialog(filename string) (string, error) {
-	return a.dialogsHandler.ShowSaveDialog(filename)
+	return a.wailsApp.ShowSaveDialog(filename)
 }
 
 func (a *App) OpenFile(filePath string) error {
-	return a.dialogsHandler.OpenFile(filePath)
+	return a.wailsApp.OpenFile(filePath)
 }
 
 func (a *App) GetAppStatus() map[string]interface{} {
-	return a.statsManager.GetAppStatus(a.config.WorkingDir)
+	return a.wailsApp.GetAppStatus()
 }
 
 func (a *App) GetStats() *AppStats {
-	return a.statsManager.GetStats()
+	transportStats := a.wailsApp.GetStats()
+	return &AppStats{
+		TotalFilesCompressed:   transportStats.TotalFilesCompressed,
+		TotalDataSaved:         transportStats.TotalDataSaved,
+		SessionFilesCompressed: transportStats.SessionFilesCompressed,
+		SessionDataSaved:       transportStats.SessionDataSaved,
+	}
 }

@@ -1,0 +1,79 @@
+package compression
+
+// CompressionOptions holds advanced compression options for PDF processing
+type CompressionOptions struct {
+	ImageDPI           int    `json:"image_dpi"`
+	ImageQuality       int    `json:"image_quality"`
+	PDFVersion         string `json:"pdf_version"`
+	RemoveMetadata     bool   `json:"remove_metadata"`
+	EmbedFonts         bool   `json:"embed_fonts"`
+	GenerateThumbnails bool   `json:"generate_thumbnails"`
+	ConvertToGrayscale bool   `json:"convert_to_grayscale"`
+}
+
+// DefaultCompressionOptions returns default compression options
+func DefaultCompressionOptions() CompressionOptions {
+	return CompressionOptions{
+		ImageDPI:           150,
+		ImageQuality:       85,
+		PDFVersion:         "1.4",
+		RemoveMetadata:     false,
+		EmbedFonts:         true,
+		GenerateThumbnails: false,
+		ConvertToGrayscale: false,
+	}
+}
+
+// CompressionRequest represents a request to compress PDF files
+type CompressionRequest struct {
+	Files            []string             `json:"files"`
+	CompressionLevel string              `json:"compressionLevel"`
+	AutoDownload     bool                `json:"autoDownload"`
+	DownloadFolder   string              `json:"downloadFolder"`
+	AdvancedOptions  *CompressionOptions `json:"advancedOptions"`
+}
+
+// CompressionResponse represents the result of a compression operation
+type CompressionResponse struct {
+	Success                 bool         `json:"success"`
+	Files                   []FileResult `json:"files"`
+	TotalFiles              int          `json:"total_files"`
+	TotalOriginalSize       int64        `json:"total_original_size"`
+	TotalCompressedSize     int64        `json:"total_compressed_size"`
+	OverallCompressionRatio float64      `json:"overall_compression_ratio"`
+	CompressionLevel        string       `json:"compression_level"`
+	AutoDownload            bool         `json:"auto_download"`
+	DownloadPaths           []string     `json:"download_paths,omitempty"`
+	Error                   string       `json:"error,omitempty"`
+}
+
+// FileResult represents the result of compressing a single file
+type FileResult struct {
+	FileID             string  `json:"file_id"`
+	OriginalFilename   string  `json:"original_filename"`
+	CompressedFilename string  `json:"compressed_filename"`
+	OriginalSize       int64   `json:"original_size"`
+	CompressedSize     int64   `json:"compressed_size"`
+	CompressionRatio   float64 `json:"compression_ratio"`
+	TempPath           string  `json:"temp_path"`
+	SavedPath          *string `json:"saved_path,omitempty"`
+	Status             string  `json:"status"`
+	Error              string  `json:"error,omitempty"`
+}
+
+// FileUpload represents an uploaded file for processing
+type FileUpload struct {
+	Name string `json:"name"`
+	Data []byte `json:"data"`
+	Size int64  `json:"size"`
+}
+
+// FileProgressUpdate represents progress updates during compression
+type FileProgressUpdate struct {
+	FileID   string  `json:"file_id"`
+	Filename string  `json:"filename"`
+	Status   string  `json:"status"`
+	Progress float64 `json:"progress"`
+	WorkerID int     `json:"worker_id"`
+	Error    string  `json:"error,omitempty"`
+}
