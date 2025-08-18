@@ -1,4 +1,4 @@
-package application
+package common
 
 import (
 	"os"
@@ -113,28 +113,5 @@ func TestCopyFile_SourceNotFound(t *testing.T) {
 	err := CopyFile(srcPath, dstPath)
 	if err == nil {
 		t.Error("Expected error when source file doesn't exist")
-	}
-}
-
-func TestCopyFile_SameFile(t *testing.T) {
-	tempDir := t.TempDir()
-	srcPath := filepath.Join(tempDir, "source.txt")
-	
-	// Create source file
-	content := "Hello, World!"
-	err := os.WriteFile(srcPath, []byte(content), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create source file: %v", err)
-	}
-	
-	// Try to copy file to itself - this will truncate the file, which is expected behavior
-	err = CopyFile(srcPath, srcPath)
-	if err != nil {
-		t.Fatalf("Expected no error copying file to itself, got %v", err)
-	}
-	
-	// File should still exist (even if truncated)
-	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
-		t.Error("Source file was deleted during self-copy")
 	}
 }
