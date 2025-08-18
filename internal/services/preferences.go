@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"pdf-compressor-wails/internal/models"
+	"kleinpdf/internal/models"
 
 	"gorm.io/gorm"
 )

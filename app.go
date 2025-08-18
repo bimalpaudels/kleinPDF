@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"pdf-compressor-wails/internal/config"
-	"pdf-compressor-wails/internal/database"
-	"pdf-compressor-wails/internal/models"
-	"pdf-compressor-wails/internal/services"
+	"kleinpdf/internal/config"
+	"kleinpdf/internal/database"
+	"kleinpdf/internal/models"
+	"kleinpdf/internal/services"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )

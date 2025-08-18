@@ -1,4 +1,4 @@
-module pdf-compressor-wails
+module kleinpdf
 
 go 1.23
 
