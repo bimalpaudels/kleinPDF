@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
 	"kleinpdf/internal/common"
 	"kleinpdf/internal/compression"
 	"kleinpdf/internal/database"
@@ -68,107 +69,113 @@ func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {
 		}
 	}
 
-	totalFiles := len(request.Files)
+	// Calculate optimal worker count
 	maxConcurrency := runtime.NumCPU()
 	if maxConcurrency > common.MaxConcurrencyLimit {
 		maxConcurrency = common.MaxConcurrencyLimit
 	}
 
-	// Create file work items with unique IDs
-	type fileWork struct {
-		ID       string
-		FilePath string
+	// Create ants pool
+	pool, err := ants.NewPool(maxConcurrency)
+	if err != nil {
+		a.config.Logger.Error("Failed to create worker pool", "error", err)
+		return CompressionResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to create worker pool: %v", err),
+		}
 	}
+	defer pool.Release()
 
-	var fileWorkItems []fileWork
-	for _, filePath := range request.Files {
-		fileWorkItems = append(fileWorkItems, fileWork{
-			ID:       common.GenerateUUID(),
-			FilePath: filePath,
-		})
-	}
-
-	// Use channels to coordinate concurrent processing
-	workChan := make(chan fileWork, totalFiles)
-	resultChan := make(chan *FileResult, totalFiles)
-
-	// Fill the work channel
-	for _, work := range fileWorkItems {
-		workChan <- work
-	}
-	close(workChan)
-
-	// Start concurrent workers
+	// Prepare for concurrent processing
+	totalFiles := len(request.Files)
+	results := make([]*FileResult, totalFiles)
 	var wg sync.WaitGroup
-	for i := 0; i < maxConcurrency && i < totalFiles; i++ {
+	
+	// Process files concurrently using ants
+	for i, filePath := range request.Files {
 		wg.Add(1)
-		go func(workerID int) {
+		
+		// Capture variables for goroutine
+		index := i
+		file := filePath
+		
+		err := pool.Submit(func() {
 			defer wg.Done()
-			for work := range workChan {
-				// Check for context cancellation
-				select {
-				case <-a.ctx.Done():
-					a.config.Logger.Info("Compression cancelled by context", "worker_id", workerID)
-					return
-				default:
-				}
-
-				result, err := a.processSingleFile(work.ID, work.FilePath, compressionLevel, request.AdvancedOptions, workerID)
-				if err != nil {
-					a.config.Logger.Error("Error processing file",
-						"file", work.FilePath,
-						"worker_id", workerID,
-						"error", err)
-
-					// Send error result
-					errorResult := &FileResult{
-						FileID:           work.ID,
-						OriginalFilename: filepath.Base(work.FilePath),
-						Status:           "error",
-						Error:            err.Error(),
-					}
-					resultChan <- errorResult
-				} else {
-					result.Status = "completed"
-					resultChan <- result
-				}
+			
+			// Check for context cancellation
+			select {
+			case <-a.ctx.Done():
+				a.config.Logger.Info("Compression cancelled by context", "file", file)
+				return
+			default:
 			}
-		}(i)
+
+			fileID := common.GenerateUUID()
+			result, err := a.processSingleFile(fileID, file, compressionLevel, request.AdvancedOptions, index)
+			
+			if err != nil {
+				a.config.Logger.Error("Error processing file", "file", file, "worker_id", index, "error", err)
+				// Create error result
+				results[index] = &FileResult{
+					FileID:           fileID,
+					OriginalFilename: filepath.Base(file),
+					Status:           "error",
+					Error:            err.Error(),
+				}
+			} else {
+				result.Status = "completed"
+				results[index] = result
+			}
+		})
+		
+		if err != nil {
+			wg.Done() // Decrement since Submit failed
+			a.config.Logger.Error("Failed to submit task", "file", filePath, "error", err)
+			results[i] = &FileResult{
+				FileID:           common.GenerateUUID(),
+				OriginalFilename: filepath.Base(filePath),
+				Status:           "error",
+				Error:            err.Error(),
+			}
+		}
 	}
 
-	// Wait for all workers and close channels
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
+	// Wait for all tasks to complete
+	wg.Wait()
 
-	// Collect results as they stream in
-	var results []FileResult
+	// Collect and aggregate results
+	var finalResults []FileResult
 	var totalOriginalSize, totalCompressedSize int64
 	completed := 0
 
-	for result := range resultChan {
-		results = append(results, *result)
-		if result.Status == "completed" {
-			totalOriginalSize += result.OriginalSize
-			totalCompressedSize += result.CompressedSize
+	for _, result := range results {
+		if result != nil {
+			finalResults = append(finalResults, *result)
+			if result.Status == "completed" {
+				totalOriginalSize += result.OriginalSize
+				totalCompressedSize += result.CompressedSize
+			}
+			completed++
 		}
-		completed++
 	}
 
 	// Calculate overall compression ratio
-	overallCompressionRatio := float64(totalOriginalSize-totalCompressedSize) / float64(totalOriginalSize) * 100
+	var overallCompressionRatio float64
+	if totalOriginalSize > 0 {
+		overallCompressionRatio = float64(totalOriginalSize-totalCompressedSize) / float64(totalOriginalSize) * 100
+	}
 
 	// Update statistics
+	dataSaved := totalOriginalSize - totalCompressedSize
 	a.stats.SessionFilesCompressed += completed
-	a.stats.SessionDataSaved += totalOriginalSize - totalCompressedSize
+	a.stats.SessionDataSaved += dataSaved
 	a.stats.TotalFilesCompressed += int64(completed)
-	a.stats.TotalDataSaved += totalOriginalSize - totalCompressedSize
+	a.stats.TotalDataSaved += dataSaved
 
 	return CompressionResponse{
 		Success:                 true,
-		Files:                   results,
-		TotalFiles:              len(results),
+		Files:                   finalResults,
+		TotalFiles:              len(finalResults),
 		TotalOriginalSize:       totalOriginalSize,
 		TotalCompressedSize:     totalCompressedSize,
 		OverallCompressionRatio: overallCompressionRatio,
@@ -223,8 +230,9 @@ func (a *App) GetStats() *AppStats {
 	return a.stats
 }
 
+
 // processSingleFile processes a single PDF file
-func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advancedOptions *compression.CompressionOptions, _ int) (*FileResult, error) {
+func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advancedOptions *compression.CompressionOptions, workerID int) (*FileResult, error) {
 	filename := filepath.Base(filePath)
 
 	// Create timestamp-based filename for compressed file
@@ -246,6 +254,10 @@ func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advan
 	// Direct compression
 	err := a.compressor.CompressFile(filePath, compressedPath, compressionLevel, advancedOptions)
 	if err != nil {
+		a.config.Logger.Error("Error processing file",
+			"file", filePath,
+			"worker_id", workerID,
+			"error", err)
 		return nil, err
 	}
 

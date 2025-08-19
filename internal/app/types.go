@@ -57,6 +57,7 @@ type FileResult struct {
 	Error              string  `json:"error,omitempty"`
 }
 
+
 // FileUpload represents uploaded file data
 type FileUpload struct {
 	Name string `json:"name"`
