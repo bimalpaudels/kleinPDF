@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
-	"kleinpdf/internal/app/concurrency"
+	"github.com/panjf2000/ants/v2"
 	"kleinpdf/internal/common"
 	"kleinpdf/internal/compression"
 	"kleinpdf/internal/database"
@@ -67,28 +69,104 @@ func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {
 		}
 	}
 
-	// Create concurrent request for concurrency module
-	concurrentRequest := concurrency.ConcurrentRequest{
-		Files:            request.Files,
-		CompressionLevel: compressionLevel,
-		AdvancedOptions:  request.AdvancedOptions,
+	// Calculate optimal worker count
+	maxConcurrency := runtime.NumCPU()
+	if maxConcurrency > common.MaxConcurrencyLimit {
+		maxConcurrency = common.MaxConcurrencyLimit
 	}
 
-	// Create worker pool and process files concurrently
-	workerPool := concurrency.NewWorkerPool(a.ctx, a.processSingleFile)
-	concurrentResult := workerPool.ProcessConcurrently(concurrentRequest)
-
-	if !concurrentResult.Success {
+	// Create ants pool
+	pool, err := ants.NewPool(maxConcurrency)
+	if err != nil {
+		a.config.Logger.Error("Failed to create worker pool", "error", err)
 		return CompressionResponse{
 			Success: false,
-			Error:   concurrentResult.Error,
+			Error:   fmt.Sprintf("failed to create worker pool: %v", err),
+		}
+	}
+	defer pool.Release()
+
+	// Prepare for concurrent processing
+	totalFiles := len(request.Files)
+	results := make([]*FileResult, totalFiles)
+	var wg sync.WaitGroup
+	
+	// Process files concurrently using ants
+	for i, filePath := range request.Files {
+		wg.Add(1)
+		
+		// Capture variables for goroutine
+		index := i
+		file := filePath
+		
+		err := pool.Submit(func() {
+			defer wg.Done()
+			
+			// Check for context cancellation
+			select {
+			case <-a.ctx.Done():
+				a.config.Logger.Info("Compression cancelled by context", "file", file)
+				return
+			default:
+			}
+
+			fileID := common.GenerateUUID()
+			result, err := a.processSingleFile(fileID, file, compressionLevel, request.AdvancedOptions, index)
+			
+			if err != nil {
+				a.config.Logger.Error("Error processing file", "file", file, "worker_id", index, "error", err)
+				// Create error result
+				results[index] = &FileResult{
+					FileID:           fileID,
+					OriginalFilename: filepath.Base(file),
+					Status:           "error",
+					Error:            err.Error(),
+				}
+			} else {
+				result.Status = "completed"
+				results[index] = result
+			}
+		})
+		
+		if err != nil {
+			wg.Done() // Decrement since Submit failed
+			a.config.Logger.Error("Failed to submit task", "file", filePath, "error", err)
+			results[i] = &FileResult{
+				FileID:           common.GenerateUUID(),
+				OriginalFilename: filepath.Base(filePath),
+				Status:           "error",
+				Error:            err.Error(),
+			}
 		}
 	}
 
+	// Wait for all tasks to complete
+	wg.Wait()
+
+	// Collect and aggregate results
+	var finalResults []FileResult
+	var totalOriginalSize, totalCompressedSize int64
+	completed := 0
+
+	for _, result := range results {
+		if result != nil {
+			finalResults = append(finalResults, *result)
+			if result.Status == "completed" {
+				totalOriginalSize += result.OriginalSize
+				totalCompressedSize += result.CompressedSize
+			}
+			completed++
+		}
+	}
+
+	// Calculate overall compression ratio
+	var overallCompressionRatio float64
+	if totalOriginalSize > 0 {
+		overallCompressionRatio = float64(totalOriginalSize-totalCompressedSize) / float64(totalOriginalSize) * 100
+	}
+
 	// Update statistics
-	completed := len(concurrentResult.Results)
-	dataSaved := concurrentResult.TotalOriginalSize - concurrentResult.TotalCompressedSize
-	
+	dataSaved := totalOriginalSize - totalCompressedSize
 	a.stats.SessionFilesCompressed += completed
 	a.stats.SessionDataSaved += dataSaved
 	a.stats.TotalFilesCompressed += int64(completed)
@@ -96,11 +174,11 @@ func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {
 
 	return CompressionResponse{
 		Success:                 true,
-		Files:                   concurrentResult.Results,
-		TotalFiles:              concurrentResult.TotalFiles,
-		TotalOriginalSize:       concurrentResult.TotalOriginalSize,
-		TotalCompressedSize:     concurrentResult.TotalCompressedSize,
-		OverallCompressionRatio: concurrentResult.OverallCompressionRatio,
+		Files:                   finalResults,
+		TotalFiles:              len(finalResults),
+		TotalOriginalSize:       totalOriginalSize,
+		TotalCompressedSize:     totalCompressedSize,
+		OverallCompressionRatio: overallCompressionRatio,
 		CompressionLevel:        compressionLevel,
 	}
 }
@@ -154,7 +232,7 @@ func (a *App) GetStats() *AppStats {
 
 
 // processSingleFile processes a single PDF file
-func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advancedOptions *compression.CompressionOptions, workerID int) (*concurrency.FileResult, error) {
+func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advancedOptions *compression.CompressionOptions, workerID int) (*FileResult, error) {
 	filename := filepath.Base(filePath)
 
 	// Create timestamp-based filename for compressed file
@@ -198,7 +276,7 @@ func (a *App) processSingleFile(fileID, filePath, compressionLevel string, advan
 	compressedSize := compressedInfo.Size()
 	compressionRatio := float64(originalSize-compressedSize) / float64(originalSize) * 100
 
-	return &concurrency.FileResult{
+	return &FileResult{
 		FileID:             fileID,
 		OriginalFilename:   filename,
 		CompressedFilename: compressedFilename,

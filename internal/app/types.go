@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"kleinpdf/internal/app/concurrency"
 	"kleinpdf/internal/compression"
 	"kleinpdf/internal/database"
 )
@@ -35,14 +34,27 @@ type CompressionRequest struct {
 
 // CompressionResponse represents the result of a compression operation
 type CompressionResponse struct {
-	Success                 bool                        `json:"success"`
-	Files                   []concurrency.FileResult    `json:"files"`
-	TotalFiles              int                         `json:"total_files"`
-	TotalOriginalSize       int64                       `json:"total_original_size"`
-	TotalCompressedSize     int64                       `json:"total_compressed_size"`
-	OverallCompressionRatio float64                     `json:"overall_compression_ratio"`
-	CompressionLevel        string                      `json:"compression_level"`
-	Error                   string                      `json:"error,omitempty"`
+	Success                 bool         `json:"success"`
+	Files                   []FileResult `json:"files"`
+	TotalFiles              int          `json:"total_files"`
+	TotalOriginalSize       int64        `json:"total_original_size"`
+	TotalCompressedSize     int64        `json:"total_compressed_size"`
+	OverallCompressionRatio float64      `json:"overall_compression_ratio"`
+	CompressionLevel        string       `json:"compression_level"`
+	Error                   string       `json:"error,omitempty"`
+}
+
+// FileResult represents the result of compressing a single file
+type FileResult struct {
+	FileID             string  `json:"file_id"`
+	OriginalFilename   string  `json:"original_filename"`
+	CompressedFilename string  `json:"compressed_filename"`
+	OriginalSize       int64   `json:"original_size"`
+	CompressedSize     int64   `json:"compressed_size"`
+	CompressionRatio   float64 `json:"compression_ratio"`
+	CompressedPath     string  `json:"compressed_path"`
+	Status             string  `json:"status"`
+	Error              string  `json:"error,omitempty"`
 }
 
 
