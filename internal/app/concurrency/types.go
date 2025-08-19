@@ -28,15 +28,15 @@ type FileResult struct {
 // ProcessorFunc defines the function signature for processing a single file
 type ProcessorFunc func(fileID, filePath, compressionLevel string, advancedOptions *compression.CompressionOptions, workerID int) (*FileResult, error)
 
-// BatchRequest represents a request to process multiple files
-type BatchRequest struct {
+// ConcurrentRequest represents a request to process multiple files concurrently
+type ConcurrentRequest struct {
 	Files            []string
 	CompressionLevel string
 	AdvancedOptions  *compression.CompressionOptions
 }
 
-// BatchResult represents the result of a batch processing operation
-type BatchResult struct {
+// ConcurrentResult represents the result of concurrent processing operation
+type ConcurrentResult struct {
 	Results                 []FileResult `json:"results"`
 	TotalFiles              int          `json:"total_files"`
 	TotalOriginalSize       int64        `json:"total_original_size"`

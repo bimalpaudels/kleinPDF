@@ -67,27 +67,27 @@ func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {
 		}
 	}
 
-	// Create batch request for concurrency module
-	batchRequest := concurrency.BatchRequest{
+	// Create concurrent request for concurrency module
+	concurrentRequest := concurrency.ConcurrentRequest{
 		Files:            request.Files,
 		CompressionLevel: compressionLevel,
 		AdvancedOptions:  request.AdvancedOptions,
 	}
 
-	// Create worker pool and process batch
+	// Create worker pool and process files concurrently
 	workerPool := concurrency.NewWorkerPool(a.ctx, a.processSingleFile)
-	batchResult := workerPool.ProcessBatch(batchRequest)
+	concurrentResult := workerPool.ProcessConcurrently(concurrentRequest)
 
-	if !batchResult.Success {
+	if !concurrentResult.Success {
 		return CompressionResponse{
 			Success: false,
-			Error:   batchResult.Error,
+			Error:   concurrentResult.Error,
 		}
 	}
 
 	// Update statistics
-	completed := len(batchResult.Results)
-	dataSaved := batchResult.TotalOriginalSize - batchResult.TotalCompressedSize
+	completed := len(concurrentResult.Results)
+	dataSaved := concurrentResult.TotalOriginalSize - concurrentResult.TotalCompressedSize
 	
 	a.stats.SessionFilesCompressed += completed
 	a.stats.SessionDataSaved += dataSaved
@@ -96,11 +96,11 @@ func (a *App) CompressPDF(request CompressionRequest) CompressionResponse {
 
 	return CompressionResponse{
 		Success:                 true,
-		Files:                   batchResult.Results,
-		TotalFiles:              batchResult.TotalFiles,
-		TotalOriginalSize:       batchResult.TotalOriginalSize,
-		TotalCompressedSize:     batchResult.TotalCompressedSize,
-		OverallCompressionRatio: batchResult.OverallCompressionRatio,
+		Files:                   concurrentResult.Results,
+		TotalFiles:              concurrentResult.TotalFiles,
+		TotalOriginalSize:       concurrentResult.TotalOriginalSize,
+		TotalCompressedSize:     concurrentResult.TotalCompressedSize,
+		OverallCompressionRatio: concurrentResult.OverallCompressionRatio,
 		CompressionLevel:        compressionLevel,
 	}
 }

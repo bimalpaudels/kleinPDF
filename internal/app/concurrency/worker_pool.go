@@ -18,10 +18,10 @@ func NewWorkerPool(ctx context.Context, processor ProcessorFunc) *WorkerPool {
 	}
 }
 
-// ProcessBatch processes a batch of files concurrently
-func (wp *WorkerPool) ProcessBatch(request BatchRequest) BatchResult {
+// ProcessConcurrently processes multiple files concurrently
+func (wp *WorkerPool) ProcessConcurrently(request ConcurrentRequest) ConcurrentResult {
 	if len(request.Files) == 0 {
-		return BatchResult{
+		return ConcurrentResult{
 			Success: false,
 			Error:   "no files provided",
 		}
@@ -105,7 +105,7 @@ func (wp *WorkerPool) calculateOptimalWorkerCount() int {
 }
 
 // collectResults collects results from the result channel
-func (wp *WorkerPool) collectResults() BatchResult {
+func (wp *WorkerPool) collectResults() ConcurrentResult {
 	var results []FileResult
 	var totalOriginalSize, totalCompressedSize int64
 	completed := 0
@@ -125,7 +125,7 @@ func (wp *WorkerPool) collectResults() BatchResult {
 		overallCompressionRatio = float64(totalOriginalSize-totalCompressedSize) / float64(totalOriginalSize) * 100
 	}
 
-	return BatchResult{
+	return ConcurrentResult{
 		Success:                 true,
 		Results:                 results,
 		TotalFiles:              len(results),
